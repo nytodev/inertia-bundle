@@ -132,7 +132,7 @@ $inertia->merge(fn () => $result, appendsAtPaths: 'data')
 $inertia->merge(fn () => $result, prependsAtPaths: 'data')
 ```
 
-**Resetting merge state:** the client can send `X-Inertia-Reset` with a comma-separated list of prop keys to clear them before merging (useful for "refresh from top" in infinite scroll).
+**Resetting merge state:** `router.reload({ reset: ['posts'] })` sends `X-Inertia-Reset`; the listed keys are left out of the merge metadata, so the client **replaces** their value instead of merging it (useful when a filter changes, or for "refresh from top" in infinite scroll).
 
 ## ScrollProp — merge with pagination metadata
 

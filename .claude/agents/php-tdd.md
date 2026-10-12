@@ -31,7 +31,7 @@ Never write production code before a failing test exists.
 ## Test Naming Convention
 
 ```php
-// Pattern: test<Behavior>_<Condition>_<ExpectedResult>
+// Pattern: test<Behavior><Condition><ExpectedResult> (camelCase, no underscores — php-cs-fixer php_unit_method_casing)
 public function testRender_WithoutInertiaHeader_ReturnsFullHtml(): void {}
 public function testRender_WithInertiaHeader_ReturnsJsonPageObject(): void {}
 public function testListener_WithVersionMismatch_Returns409(): void {}
@@ -128,7 +128,7 @@ Implement tests in this order (protocol compliance first):
 4. `PartialReloadTest` — Subset of props returned
 5. `RedirectTest` — 302→303 after DELETE/PUT/PATCH
 6. `SharedPropsTest` — Shared data merged into every response
-7. `LazyPropTest` — Closures only evaluated when needed
+7. `OptionalPropTest` — Closures only evaluated when needed
 8. `DeferredPropTest` — Props excluded from initial render
 9. `OncePropsTest` — Props loaded once and cached by client
 

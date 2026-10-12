@@ -9,18 +9,18 @@ require_once __DIR__.'/../vendor/autoload.php';
 // from source (not from stale cached containers).
 $baseCacheDir = sys_get_temp_dir().'/inertia-bundle-tests/cache';
 
-foreach (['test', 'ssr'] as $env) {
-    $cacheDir = $baseCacheDir.'/'.$env;
+if (is_dir($baseCacheDir)) {
+    foreach (new DirectoryIterator($baseCacheDir) as $envDir) {
+        if ($envDir->isDot() || !$envDir->isDir()) {
+            continue;
+        }
 
-    if (!is_dir($cacheDir)) {
-        continue;
-    }
-
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($cacheDir, RecursiveDirectoryIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::CHILD_FIRST,
-    );
-    foreach ($iterator as $file) {
-        $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($envDir->getPathname(), RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($iterator as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
     }
 }

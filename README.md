@@ -180,6 +180,7 @@ return $inertia->render('Feed/Index', [
 inertia:
     root_view: base.html.twig   # Root Twig template (default: base.html.twig)
     version: null               # Asset version string — triggers full reload on change
+    intercept_validation_errors: true # Convert ValidationFailedException (MapRequestPayload/MapQueryString or manual throw) into Inertia errors + 303 back
     encrypt_history: false      # Globally encrypt browser history state
     expose_shared_prop_keys: true # Expose shared prop keys as top-level `sharedProps` in page object
     ssr_enabled: false            # Enable SSR (requires symfony/http-client)

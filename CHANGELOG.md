@@ -1,6 +1,19 @@
 CHANGELOG
 =========
 
+3.1.1
+-----
+
+ * Fixed `onceProps.*.expiresAt` emitted in seconds instead of milliseconds — the client compares it with `Date.now()`, so every `once()->until()` prop was treated as already expired and re-resolved on each visit
+ * Fixed keys listed in `X-Inertia-Reset` still being emitted in `mergeProps` / `prependProps` / `deepMergeProps` / `matchPropsOn` — `router.reload({ reset: [...] })` merged into the client value instead of replacing it (merge, deferred merge and scroll props)
+ * Fixed empty `errors` prop serialized as `[]` instead of `{}` (XHR, first visit and Serializer paths)
+
+3.1.0
+-----
+
+ * Added `intercept_validation_errors` config option (default `true`) — set to `false` to remove the validation listener from the container and keep Symfony's default 4xx behavior on Inertia requests
+ * Added `InertiaValidationListener` — automatically converts `ValidationFailedException` (thrown by `#[MapRequestPayload]` / `#[MapQueryString]` or manually) into the Inertia error flow on `X-Inertia` requests: one message per field (first violation wins), errors stored in session, `303 See Other` redirect back to the `Referer` (same-host URLs and relative paths only — cross-origin or malformed referers fall back to the current URL), errors injected as the `errors` prop on the next render. Requires `symfony/validator` (definition removed at compile time when absent) and a session (interception skipped without one). Non-Inertia requests keep Symfony's default 4xx behavior
+
 3.0.2
 -----
 

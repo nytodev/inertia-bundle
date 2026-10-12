@@ -13,6 +13,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
+use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 /**
  * Main bundle class. Uses AbstractBundle (Symfony 6.1+) — no separate Extension class needed.
@@ -52,6 +53,10 @@ final class InertiaBundle extends AbstractBundle
             ->arg('$ensurePagesExist', $config['pages']['ensure_pages_exist'])
             ->arg('$pagePaths', $config['pages']['paths'])
             ->arg('$pageExtensions', $config['pages']['extensions']);
+
+        if (!$config['intercept_validation_errors'] || !class_exists(ValidationFailedException::class)) {
+            $builder->removeDefinition('inertia.validation_listener');
+        }
 
         // BundleDetector is always registered: used by StartSsrCommand and HttpSsrGateway.
         $services->get('inertia.ssr_bundle_detector')

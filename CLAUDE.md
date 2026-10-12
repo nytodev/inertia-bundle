@@ -31,6 +31,11 @@ vendor/bin/php-cs-fixer fix --dry-run --diff          # code style check
 vendor/bin/php-cs-fixer fix                           # code style fix
 ```
 
+PHPStan 1.12 cannot parse the property hooks used by Symfony 8.1+ (`vendor/` resolved to 8.1 locally):
+it reports hundreds of false `unknown class Symfony\...\Request/Response` errors. CI is green because its
+matrix pins Symfony 8.0. Until PHPStan 2.x is adopted, compare error output before/after a change
+instead of expecting zero errors locally.
+
 ---
 
 ## PHP conventions
@@ -98,7 +103,9 @@ Returns JSON page object with headers:
 }
 ```
 - `url` is a **relative path + query string** (e.g. `/users?page=2`), never an absolute URL with scheme/host
-- `clearHistory` and `encryptHistory` are **omitted when false** — only present when `true` (v3 change from v2)
+- `clearHistory`, `encryptHistory` and `preserveFragment` are **omitted when false** — only present when `true` (v3 change from v2)
+- `errors` empty → JSON **object** `{}`, never `[]` (inertia-laravel: `(object) []`). PHP tests decoding with
+  `json_decode(..., true)` cannot tell them apart — assert on the raw JSON string.
 
 **Conditionally present (omitted if empty):**
 ```json
@@ -108,10 +115,13 @@ Returns JSON page object with headers:
     "prependProps":   ["notifications"],
     "deepMergeProps": ["conversations"],
     "matchPropsOn":   ["posts.id"],
-    "onceProps":      { "plans": { "prop": "plans", "expiresAt": null } },
-    "scrollProps":    { "posts": { "pageName": "page", "nextPage": 2 } }
+    "onceProps":      { "plans": { "prop": "plans", "expiresAt": 1767225600000 } },
+    "scrollProps":    { "posts": { "pageName": "page", "previousPage": null, "nextPage": 2, "currentPage": 1, "reset": false } },
+    "sharedProps":    ["auth"],
+    "flash":          { "notification": "Saved" }
 }
 ```
+- `onceProps.*.expiresAt` is a timestamp in **milliseconds** (the client compares it with `Date.now()`), or `null`
 
 ### Asset versioning
 - `X-Inertia-Version` header differs from server version → `409 Conflict` + `X-Inertia-Location` header
@@ -121,13 +131,20 @@ Returns JSON page object with headers:
 ### Redirects
 - `302` after `PUT`/`PATCH`/`DELETE` → convert to `303 See Other`
 - `302` after `GET` → keep as `302`
+- Redirect whose `Location` contains a `#` on an Inertia request (not `Purpose: prefetch`) → `409` +
+  `X-Inertia-Redirect: <location>`; the client then visits it and keeps the fragment. Never added to ordinary redirects.
 
 ### Partial reloads
+- Partial only when `X-Inertia-Partial-Component` equals the rendered component; otherwise both filter headers are ignored
 - `X-Inertia-Partial-Data` → include only listed props (CSV)
 - `X-Inertia-Partial-Except` → exclude listed props (CSV); if both headers present, `Except` wins
-- `X-Inertia-Reset` → reset (clear) listed props before merging (used with merge props)
+- `X-Inertia-Reset` → listed keys are **omitted from all merge metadata** (`mergeProps`, `prependProps`,
+  `deepMergeProps`, `matchPropsOn`) so the client replaces the value instead of merging; `scrollProps.<key>.reset` is `true`.
+  The v3 client also appends reset keys to `X-Inertia-Partial-Data`.
 - `errors` prop is **always** included regardless of partial reload filters
-- `LazyProp` (optional) closures are **only** resolved when the key is explicitly in `X-Inertia-Partial-Data` — they are NOT resolved in except-only partial reloads or full renders
+- `OptionalProp` (`optional()`) closures are **only** resolved when the key is explicitly in `X-Inertia-Partial-Data` — they are NOT resolved in except-only partial reloads or full renders.
+  ⚠️ Diverges from inertia-laravel 3.x, which resolves them in except-only partial reloads (audit 2026-10-12, not yet aligned).
+- Dot-notation keys (`auth.user`) and nested closures/prop objects inside arrays are **not supported yet** (resolved recursively in inertia-laravel 3.x — known gap)
 
 ### Props types and evaluation
 
@@ -135,10 +152,10 @@ Returns JSON page object with headers:
 |------|---------------|----------------|-------|
 | `mixed` (direct value) | ✅ Always | ✅ Optionally | Resolved always |
 | `Closure` | ✅ Always | ✅ Optionally | Lazy-evaluated |
-| `LazyProp` (`optional()`) | ❌ Never | ✅ Only if in `$only` | Must be explicitly requested |
+| `OptionalProp` (`optional()`) | ❌ Never | ✅ Only if in `$only` | Must be explicitly requested; `lazy()` no longer exists |
 | `AlwaysProp` (`always()`) | ✅ Always | ✅ Always | Included even in partial reloads |
 | `DeferProp` (`defer()`) | ❌ Never (in `deferredProps`) | ✅ Separate XHR | Client fetches per group |
-| `OnceProp` (`once()`) | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | Client caches; supports `.as()`, `.until()`, `.fresh()` |
+| `OnceProp` (`once()`) | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` (full XHR visits only; ignored on partial reloads) | Client caches; supports `.as()`, `.until()`, `.fresh()` |
 | `MergeProp` (`merge()`) | ✅ Yes | ✅ Yes | Populates `mergeProps`/`prependProps`/`deepMergeProps` |
 
 ---
@@ -157,16 +174,21 @@ symfony-inertia-bundle/
 │   ├── InertiaBundle.php       ← AbstractBundle: configure() + loadExtension()
 │   ├── Service/
 │   │   └── Inertia.php         ← render(), share(), shareOnce(), flash(), errors(),
-│   │                              clearHistory(), encryptHistory(), version(),
-│   │                              lazy(), optional(), always(), defer(), once(),
+│   │                              clearHistory(), encryptHistory(), preserveFragment(),
+│   │                              version(), handleExceptionsUsing(),
+│   │                              optional(), always(), defer(), once(),
 │   │                              merge(), deepMerge(), location(), scroll()
 │   ├── Response/
 │   │   └── InertiaResponse.php ← builds page object, handles HTML vs JSON
 │   ├── EventListener/
-│   │   └── InertiaListener.php ← kernel.request (detect, version check) + kernel.response (302→303)
+│   │   ├── InertiaListener.php ← kernel.request (detect, version check) + kernel.response (302→303)
+│   │   ├── InertiaExceptionListener.php ← kernel.exception → handleExceptionsUsing() callback
+│   │   └── InertiaValidationListener.php ← kernel.exception → ValidationFailedException → errors + 303 back
+│   ├── Exception/
+│   │   └── ExceptionResponse.php ← DTO passed to the handleExceptionsUsing() callback
 │   ├── Props/
 │   │   ├── AlwaysProp.php
-│   │   ├── LazyProp.php
+│   │   ├── OptionalProp.php
 │   │   ├── DeferProp.php
 │   │   ├── OnceProp.php
 │   │   ├── MergeProp.php
@@ -195,6 +217,7 @@ symfony-inertia-bundle/
             ├── HistoryFlagsTest.php
             ├── AssetVersionTest.php
             ├── PartialReloadTest.php
+            ├── ResetPropsTest.php
             ├── DeferredPropsTest.php
             ├── MergePropsPathTest.php
             ├── MatchPropsOnTest.php
@@ -211,7 +234,10 @@ symfony-inertia-bundle/
 ## Testing standards
 
 - PHPUnit 10.5+ or 11+, minimum **95% coverage** on `src/`
-- Test naming: `test<Behavior>_<Condition>_<ExpectedResult>`
+- Test naming: `test<Behavior><Condition><ExpectedResult>` in camelCase, **no underscores** — php-cs-fixer
+  (`php_unit_method_casing`) rewrites underscores and CI runs it in dry-run mode
+- Reference implementation for expected behavior: `/home/tony/Documents/tony/inertia-laravel` (branch `3.x`,
+  `src/PropsResolver.php`, `tests/PropsResolverTest.php`)
 - `WebTestCase` for functional/protocol tests
 - Always test both paths: Inertia XHR AND normal HTML request
 - Check HTTP headers precisely with `assertResponseHasHeader()`
@@ -234,7 +260,7 @@ docs(readme): add Flex installation instructions
 
 ## v2 → v3 migration — changes implemented on branch `3.x`
 
-**v3.0.0 released 2026-03-24.** Branch `3.x` targets v3. The following breaking changes from v2 are **already implemented**:
+**v3.0.0 released 2026-03-25.** Branch `3.x` targets v3. The following breaking changes from v2 are **already implemented**:
 
 | Area | v2 | v3 (implemented) |
 |------|-----|------------------|
@@ -242,13 +268,20 @@ docs(readme): add Flex installation instructions
 | JSON escaping | `JSON_HEX_TAG\|APOS\|AMP\|QUOT` | `JSON_HEX_TAG` only (sufficient in script context) ✅ |
 | `clearHistory` | Always present, even if `false` | Omitted when `false` ✅ |
 | `encryptHistory` | Always present, even if `false` | Omitted when `false` ✅ |
+| `sharedProps` | — | Top-level list of `share()` keys (config `expose_shared_prop_keys`) ✅ |
+| `X-Inertia-Redirect` | — | `409` for redirects whose target contains `#` ✅ |
+| `preserveFragment` | — | Page object flag, omitted when `false` ✅ |
 
-**Not yet implemented (future work):**
+**Known gaps vs inertia-laravel 3.5.1 (audit 2026-10-12):**
 
-| Area | v3 spec | Status |
-|------|---------|--------|
-| `sharedProps` | Added as metadata field in page object | ❌ Not implemented |
-| `X-Inertia-Redirect` | Added response header on redirect | ❌ Not implemented |
+| Area | inertia-laravel 3.x | Status |
+|------|---------------------|--------|
+| Nested closures / prop objects inside arrays | Resolved recursively | ❌ Serialized as `{}` |
+| Dot-notation partial reloads (`auth.user`) | Supported | ❌ Prop dropped |
+| `handleExceptionsUsing()` | Applies to first visits (HTML) too | ❌ XHR only |
+| Optional/defer props in except-only partial reloads | Resolved | ❌ Not resolved |
+| `X-Inertia-Version` header on version-mismatch 409 | Since 3.1.1 | ❌ |
+| `defer(rescue: true)` + `rescuedProps` | Since 3.1.0 | ❌ |
 
 ---
 

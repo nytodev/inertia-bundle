@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -61,7 +61,9 @@ jobs:
           composer require --dev --no-update \
             "symfony/browser-kit:${{ matrix.symfony }}.*" \
             "symfony/http-client:${{ matrix.symfony }}.*" \
+            "symfony/property-access:${{ matrix.symfony }}.*" \
             "symfony/serializer:${{ matrix.symfony }}.*" \
+            "symfony/validator:${{ matrix.symfony }}.*" \
             "symfony/yaml:${{ matrix.symfony }}.*"
 
       - name: Install dependencies
@@ -89,7 +91,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup PHP 8.4 with Xdebug
         uses: shivammathur/setup-php@v2
@@ -115,7 +117,9 @@ jobs:
           composer require --dev --no-update \
             "symfony/browser-kit:8.0.*" \
             "symfony/http-client:8.0.*" \
+            "symfony/property-access:8.0.*" \
             "symfony/serializer:8.0.*" \
+            "symfony/validator:8.0.*" \
             "symfony/yaml:8.0.*"
 
       - name: Install dependencies

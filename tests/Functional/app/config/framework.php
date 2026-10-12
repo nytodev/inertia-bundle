@@ -10,6 +10,9 @@ return static function (ContainerConfigurator $container): void {
         'test' => true,
         'session' => ['handler_id' => null, 'storage_factory_id' => 'session.storage.factory.mock_file'],
         'router' => ['utf8' => true],
+        'serializer' => ['enabled' => true],
+        'validation' => ['enabled' => true],
+        'property_access' => ['enabled' => true],
     ]);
 
     $container->services()

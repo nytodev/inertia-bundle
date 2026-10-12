@@ -124,6 +124,22 @@ final class ValidationErrorsTest extends FunctionalTestCase
         self::assertSame([], $data['props']['errors']);
     }
 
+    public function testEmptyErrorsOnXhrVisitRawJsonIsObjectNotArray(): void
+    {
+        $this->client->request('GET', '/test', [], [], ['HTTP_X_INERTIA' => 'true']);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('"errors":{}', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testEmptyErrorsOnFirstVisitRawJsonIsObjectNotArray(): void
+    {
+        $this->client->request('GET', '/test');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('"errors":{}', (string) $this->client->getResponse()->getContent());
+    }
+
     // -------------------------------------------------------------------------
     // helpers
     // -------------------------------------------------------------------------

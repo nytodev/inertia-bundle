@@ -76,6 +76,22 @@ services:
             - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse, priority: 0 }
 
     # -------------------------------------------------------------------------
+    # Validation listener: kernel.exception — converts ValidationFailedException
+    # (MapRequestPayload/MapQueryString or manual throw) into the Inertia error
+    # flow: errors stored in session + 303 redirect back.
+    # Requires symfony/validator; the definition is removed at compile time when
+    # the component is absent (see InertiaBundle::loadExtension()).
+    # Priority 16: must run before inertia.exception_listener.
+    # -------------------------------------------------------------------------
+    inertia.validation_listener:
+        class: Nytodev\InertiaBundle\EventListener\InertiaValidationListener
+        public: false
+        arguments:
+            $inertia: '@inertia.service'
+        tags:
+            - { name: kernel.event_listener, event: kernel.exception, method: onKernelException, priority: 16 }
+
+    # -------------------------------------------------------------------------
     # Exception listener: kernel.exception — delegates to handleExceptionsUsing() callback.
     # -------------------------------------------------------------------------
     inertia.exception_listener:

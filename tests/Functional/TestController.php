@@ -13,7 +13,12 @@ use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Validator\ConstraintViolation;
+use Symfony\Component\Validator\ConstraintViolationList;
+use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 final class TestController
 {
@@ -346,6 +351,30 @@ final class TestController
     public function sharedPropsEmpty(): Response
     {
         return $this->inertia->render('TestComponent', ['local' => 'value']);
+    }
+
+    public function mapRequestPayloadForm(): Response
+    {
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function mapRequestPayloadSubmit(#[MapRequestPayload] CreateUserPayload $payload): Response
+    {
+        return new RedirectResponse('/test/validation-errors-target', 303);
+    }
+
+    public function mapQueryStringSearch(#[MapQueryString] SearchQuery $query): Response
+    {
+        return $this->inertia->render('TestComponent', ['term' => $query->term]);
+    }
+
+    public function throwValidationFailed(): Response
+    {
+        $violations = new ConstraintViolationList([
+            new ConstraintViolation('Manual message.', null, [], null, 'name', null),
+        ]);
+
+        throw new ValidationFailedException(null, $violations);
     }
 
     public function throwNotFound(): Response
