@@ -46,37 +46,53 @@ final class PropsResolverTest extends TestCase
         self::assertArrayNotHasKey('name', $props);
     }
 
-    /**
-     * Deliberate divergence from inertia-laravel 3.x, which resolves optional props on except-only partial reloads.
-     */
-    public function testOptionalPropOnExceptOnlyPartialReloadIsNeverCalled(): void
+    public function testOptionalPropOnExceptOnlyPartialReloadIsResolved(): void
     {
-        $called = false;
-        $optional = new OptionalProp(static function () use (&$called): string {
-            $called = true;
+        [$props] = $this->resolve(
+            ['lazy' => new OptionalProp(static fn () => 'lazy-value'), 'eager' => 'value', 'other' => 'x'],
+            $this->partial(except: 'eager'),
+        );
 
-            return 'lazy-value';
-        });
-
-        [$props] = $this->resolve(['lazy' => $optional, 'eager' => 'value', 'other' => 'x'], $this->partial(except: 'eager'));
-
-        self::assertFalse($called);
-        self::assertSame(['other' => 'x'], $props);
+        self::assertSame(['lazy' => 'lazy-value', 'other' => 'x'], $props);
     }
 
-    public function testDeferredScrollPropOnExceptOnlyPartialReloadIsNeverCalled(): void
+    public function testDeferPropOnExceptOnlyPartialReloadIsResolvedWithoutDeferredMetadata(): void
     {
-        $called = false;
-        $scroll = (new ScrollProp(static function () use (&$called): array {
-            $called = true;
+        $resolver = $this->makeResolver($this->partial(except: 'other'));
+        $props = $resolver->resolve(['comments' => new DeferProp(static fn () => ['c1']), 'other' => 'x']);
 
-            return [];
-        }))->defer();
+        self::assertSame(['comments' => ['c1']], $props);
+        self::assertSame([], $resolver->deferredProps());
+    }
 
-        [$props] = $this->resolve(['posts' => $scroll, 'other' => 'x'], $this->partial(except: 'unrelated'));
+    public function testDeferPropIsResolvedWhenOneOfItsChildrenIsRequested(): void
+    {
+        [$props] = $this->resolve(
+            ['stats' => new DeferProp(static fn () => ['logins' => 3, 'actions' => 7]), 'other' => 'x'],
+            $this->partial(only: 'stats.logins'),
+        );
 
-        self::assertFalse($called);
-        self::assertSame(['other' => 'x'], $props);
+        self::assertSame(['stats' => ['logins' => 3, 'actions' => 7]], $props);
+    }
+
+    public function testOptionalPropIsResolvedWhenOneOfItsChildrenIsRequested(): void
+    {
+        [$props] = $this->resolve(
+            ['report' => new OptionalProp(static fn () => ['rows' => [1], 'total' => 1])],
+            $this->partial(only: 'report.total'),
+        );
+
+        self::assertSame(['report' => ['rows' => [1], 'total' => 1]], $props);
+    }
+
+    public function testDeferredScrollPropOnExceptOnlyPartialReloadIsResolved(): void
+    {
+        [$props] = $this->resolve(
+            ['posts' => (new ScrollProp(static fn () => [['id' => 1]]))->defer(), 'other' => 'x'],
+            $this->partial(except: 'unrelated'),
+        );
+
+        self::assertSame(['posts' => [['id' => 1]], 'other' => 'x'], $props);
     }
 
     public function testDeferPropIsExcludedOnFullRender(): void
@@ -125,6 +141,66 @@ final class PropsResolverTest extends TestCase
 
         self::assertArrayNotHasKey('name', $props);
         self::assertSame('Hello', $props['title']);
+    }
+
+    public function testOncePropIsSkippedWhenClientHasItsAlias(): void
+    {
+        $resolver = $this->makeResolver(['X-Inertia-Except-Once-Props' => 'pricing']);
+        $props = $resolver->resolve(['plans' => (new OnceProp(static fn () => ['pro']))->as('pricing')]);
+
+        self::assertSame([], $props);
+        self::assertSame(['pricing' => ['prop' => 'plans', 'expiresAt' => null]], $resolver->onceProps());
+    }
+
+    public function testOncePropWithAliasIsResolvedWhenClientOnlySendsItsPath(): void
+    {
+        [$props] = $this->resolve(
+            ['plans' => (new OnceProp(static fn () => ['pro']))->as('pricing')],
+            ['X-Inertia-Except-Once-Props' => 'plans'],
+        );
+
+        self::assertSame(['plans' => ['pro']], $props);
+    }
+
+    public function testFreshOncePropIsResolvedEvenWhenClientHasIt(): void
+    {
+        $resolver = $this->makeResolver(['X-Inertia-Except-Once-Props' => 'plans']);
+        $props = $resolver->resolve(['plans' => (new OnceProp(static fn () => ['pro']))->fresh()]);
+
+        self::assertSame(['plans' => ['pro']], $props);
+        self::assertSame(['plans' => ['prop' => 'plans', 'expiresAt' => null]], $resolver->onceProps());
+    }
+
+    public function testDeferOncePropAlreadyLoadedIsNotAnnouncedInDeferredProps(): void
+    {
+        $resolver = $this->makeResolver(['X-Inertia-Except-Once-Props' => 'stats']);
+        $resolver->resolve([
+            'stats' => (new DeferProp(static fn () => ['logins' => 3]))->once(),
+            'comments' => new DeferProp(static fn () => []),
+        ]);
+
+        self::assertSame(['default' => ['comments']], $resolver->deferredProps());
+        self::assertSame(['stats' => ['prop' => 'stats', 'expiresAt' => null]], $resolver->onceProps());
+    }
+
+    public function testDeferOncePropExplicitlyRequestedIsResolvedEvenWhenClientHasIt(): void
+    {
+        $headers = $this->partial(only: 'stats');
+        $headers['X-Inertia-Except-Once-Props'] = 'stats';
+
+        [$props] = $this->resolve(['stats' => (new DeferProp(static fn () => ['logins' => 3]))->once()], $headers);
+
+        self::assertSame(['stats' => ['logins' => 3]], $props);
+    }
+
+    public function testOptionalOncePropExplicitlyRequestedIsResolvedEvenWhenClientHasIt(): void
+    {
+        $headers = $this->partial(only: 'permissions');
+        $headers['X-Inertia-Except-Once-Props'] = 'permissions';
+
+        [$props] = $this->resolve(['permissions' => (new OptionalProp(static fn () => ['read']))->once()], $headers);
+
+        self::assertSame(['permissions' => ['read']], $props);
     }
 
     public function testOncePropInExceptIsNeverCalled(): void

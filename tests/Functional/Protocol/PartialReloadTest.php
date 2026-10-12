@@ -121,14 +121,8 @@ final class PartialReloadTest extends FunctionalTestCase
         self::assertArrayNotHasKey('baz', $data['props']);
     }
 
-    // -------------------------------------------------------------------------
-    // BUG 4 — OptionalProp must NOT be resolved when only X-Inertia-Partial-Except is set
-    // -------------------------------------------------------------------------
-
-    public function testPartialReloadOptionalPropExceptOnlyHeaderOptionalPropNotResolved(): void
+    public function testPartialReloadExceptOnlyResolvesOptionalProp(): void
     {
-        // Only X-Inertia-Partial-Except is sent (no X-Inertia-Partial-Data).
-        // OptionalProp must NOT appear because it was never explicitly requested via $only.
         $this->client->request('GET', '/test/optional', [], [], [
             'HTTP_X_INERTIA' => 'true',
             'HTTP_X_INERTIA_PARTIAL_EXCEPT' => 'eager',
@@ -138,8 +132,7 @@ final class PartialReloadTest extends FunctionalTestCase
         $data = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertIsArray($data);
         self::assertIsArray($data['props']);
-        // 'eager' was excluded; 'lazy' was never requested — must be absent.
-        self::assertArrayNotHasKey('lazy', $data['props']);
+        self::assertSame('lazy-value', $data['props']['lazy']);
         self::assertArrayNotHasKey('eager', $data['props']);
     }
 
@@ -244,10 +237,8 @@ final class PartialReloadTest extends FunctionalTestCase
         self::assertSame(['read', 'write'], $data['props']['permissions']);
     }
 
-    public function testOptionalOnceSkippedWhenClientSendsExceptOnceProps(): void
+    public function testOptionalOnceExplicitlyRequestedIsResolvedEvenWhenClientHasIt(): void
     {
-        // Client has cached the permissions — sends X-Inertia-Except-Once-Props.
-        // Server must NOT re-resolve even if the key is in X-Inertia-Partial-Data.
         $this->client->request('GET', '/test/optional-once', [], [], [
             'HTTP_X_INERTIA' => 'true',
             'HTTP_X_INERTIA_PARTIAL_DATA' => 'permissions',
@@ -257,7 +248,7 @@ final class PartialReloadTest extends FunctionalTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertArrayNotHasKey('permissions', $data['props'] ?? []);
+        self::assertSame(['read', 'write'], $data['props']['permissions']);
     }
 
     // -------------------------------------------------------------------------

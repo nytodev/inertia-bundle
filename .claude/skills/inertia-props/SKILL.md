@@ -124,7 +124,7 @@ Our bundle: `$inertia->once(fn () => ...)` — all modifiers implemented.
 Client needs `onceProps[key]` to know it should reinject from cache.
 
 **`expiresAt`:** Unix timestamp in **milliseconds** (`getTimestamp() * 1000`) or null — the client compares it with `Date.now()`; a seconds value is always "expired". Client auto-invalidates when expired.
-**`fresh: true`:** included in metadata when `->fresh()` is set.
+**`fresh()`:** the prop is resolved even when its key is in `X-Inertia-Except-Once-Props`. Nothing is added to the metadata (the client only reads `prop` and `expiresAt`).
 **Alias:** `onceProps` key = alias, `prop` field = original key.
 
 ---

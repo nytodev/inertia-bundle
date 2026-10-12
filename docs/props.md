@@ -7,31 +7,29 @@ Beyond plain values and closures, the bundle provides several special prop types
 | Type | Method | Full render | Partial reload | Notes |
 |------|--------|-------------|----------------|-------|
 | Plain value / Closure | — | ✅ Always | ✅ Optionally | Standard prop |
-| `LazyProp` | `lazy()` / `optional()` | ❌ Never | ✅ Only if requested | Must be in `X-Inertia-Partial-Data` |
+| `OptionalProp` | `optional()` | ❌ Never | ✅ If requested | Named in `only`, or not excluded by an `except`-only reload |
 | `AlwaysProp` | `always()` | ✅ Always | ✅ Always | Bypasses partial filters |
 | `DeferProp` | `defer()` | ❌ Never | ✅ Separate XHR | Client fetches after page load |
 | `OnceProp` | `once()` | ✅ First time | ✅ Unless cached | Client caches; supports modifiers |
 | `MergeProp` | `merge()` / `deepMerge()` | ✅ Always | ✅ Always | Merged into existing client value |
 | `ScrollProp` | `scroll()` | ✅ Always | ✅ Always | Merge + pagination metadata |
 
-## LazyProp — optional props
+## OptionalProp — optional props
 
-Never sent on full renders. Only resolved when the key is explicitly listed in `X-Inertia-Partial-Data`. Use for expensive data only needed on partial reloads (e.g. a detail panel).
-
-`optional()` is an alias for `lazy()` matching the official Inertia v3 API name:
+Never sent on full renders. Resolved on a partial reload that requests it: `router.reload({ only: ['comments'] })`, or an `except`-only reload that does not exclude it (same as inertia-laravel). Use for expensive data only needed on demand (e.g. a detail panel).
 
 ```php
 return $inertia->render('Reports/Show', [
     'report'   => $report,
-    'comments' => $inertia->lazy(fn () => $this->commentRepo->findBy(['report' => $report])),
-    // identical:
     'comments' => $inertia->optional(fn () => $this->commentRepo->findBy(['report' => $report])),
 ]);
 ```
 
+> `lazy()` was removed in v3 — use `optional()`.
+
 ### Chaining with once()
 
-`optional()->once()` combines lazy loading with client-side caching: the prop is absent on full renders, resolved only when explicitly requested, and cached by the client after the first resolution.
+`optional()->once()` combines lazy loading with client-side caching: the prop is absent on full renders, resolved when requested, and cached by the client after the first resolution. Requesting it explicitly (`only`) always refreshes it.
 
 ```php
 return $inertia->render('Dashboard', [
@@ -72,7 +70,7 @@ $inertia->defer(fn () => $this->paginate($page))->merge()->matchOn('id')
 
 ### Chaining with once()
 
-`defer()->once()` fetches the prop via deferred XHR on the first visit, then caches the result. Subsequent navigations to the same page skip the XHR entirely.
+`defer()->once()` fetches the prop via deferred XHR on the first visit, then caches the result. Subsequent visits skip the XHR entirely: the prop is no longer listed in `deferredProps` while the client has it. Requesting it explicitly (`only`) always refreshes it.
 
 ```php
 return $inertia->render('Dashboard', [
@@ -96,9 +94,9 @@ return $inertia->render('Orders/Create', [
 
 ```php
 $inertia->once(fn () => $data)
-    ->as('alias')            // Send under a different key name
+    ->as('pricing')          // Client cache key, shared by every page using it (the prop keeps its name)
     ->until(3600)            // Expire after N seconds (also accepts \DateTimeInterface)
-    ->fresh();               // Always send fresh, bypassing client cache
+    ->fresh();               // Always resolved, even when the client already has it
 ```
 
 ## MergeProp — client-side merge

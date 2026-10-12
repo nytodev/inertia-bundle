@@ -4,8 +4,8 @@
 
 ## Type of change
 
-- [ ] Bug fix (targets `2.x`)
-- [ ] New feature (targets `2.x`)
+- [ ] Bug fix (targets `3.x`)
+- [ ] New feature (targets `3.x`)
 - [ ] Breaking change
 - [ ] Documentation
 
@@ -13,7 +13,7 @@
 
 - [ ] Tests added or updated
 - [ ] All CI checks pass locally (`phpunit`, `phpstan`, `php-cs-fixer`)
-- [ ] No breaking change to the Inertia.js v2 protocol output
+- [ ] No breaking change to the Inertia.js v3 protocol output
 - [ ] `CHANGELOG.md` updated (for features and deprecations)
 
 ## Related issue

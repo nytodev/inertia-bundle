@@ -157,7 +157,7 @@ App\EventListener\InertiaShareListener:
 
 | Method | Behaviour |
 |--------|-----------|
-| `$inertia->lazy(fn)` / `optional(fn)` | Never sent on full render, only on explicit partial reload |
+| `$inertia->optional(fn)` | Never sent on full render, only on partial reloads that request it |
 | `$inertia->always(fn)` | Always sent, even in partial reloads that filter other props |
 | `$inertia->defer(fn)` | Fetched by the client in a separate XHR after page load |
 | `$inertia->once(fn)` | Sent once, cached by the client |
@@ -167,7 +167,7 @@ App\EventListener\InertiaShareListener:
 return $inertia->render('Feed/Index', [
     'posts'    => $inertia->merge(fn () => $this->postRepo->paginate($page)),
     'stats'    => $inertia->defer(fn () => $this->buildStats()),
-    'comments' => $inertia->lazy(fn () => $this->commentRepo->findAll()),
+    'comments' => $inertia->optional(fn () => $this->commentRepo->findAll()),
 ]);
 ```
 
