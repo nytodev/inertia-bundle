@@ -95,16 +95,16 @@ final class InertiaResponse
      * Build the canonical v3 page object array.
      * clearHistory and encryptHistory are omitted when false (v3 behaviour).
      *
-     * @param array<string, mixed>                                                  $resolvedProps
-     * @param array<string, list<string>>                                           $deferredProps  grouped deferred prop keys
-     * @param list<string>                                                          $mergeProps
-     * @param list<string>                                                          $prependProps
-     * @param list<string>                                                          $deepMergeProps
-     * @param array<string, array{prop: string, expiresAt: int|null, fresh?: true}> $onceProps      once-prop metadata
-     * @param list<string>                                                          $matchPropsOn   "propKey.fieldKey" entries for dedup
-     * @param array<string, array<string, mixed>>                                   $scrollProps    pagination metadata keyed by prop name (includes reset flag)
-     * @param list<string>                                                          $sharedPropKeys keys coming from Inertia::share(); emitted as top-level sharedProps when non-empty
-     * @param array<string, mixed>                                                  $flash          flash data emitted as top-level key (omitted when empty, matching inertia-laravel)
+     * @param array<string, mixed>                                    $resolvedProps
+     * @param array<string, list<string>>                             $deferredProps  grouped deferred prop keys
+     * @param list<string>                                            $mergeProps
+     * @param list<string>                                            $prependProps
+     * @param list<string>                                            $deepMergeProps
+     * @param array<string, array{prop: string, expiresAt: int|null}> $onceProps      once-prop metadata
+     * @param list<string>                                            $matchPropsOn   "propKey.fieldKey" entries for dedup
+     * @param array<string, array<string, mixed>>                     $scrollProps    pagination metadata keyed by prop name (includes reset flag)
+     * @param list<string>                                            $sharedPropKeys keys coming from Inertia::share(); emitted as top-level sharedProps when non-empty
+     * @param array<string, mixed>                                    $flash          flash data emitted as top-level key (omitted when empty, matching inertia-laravel)
      *
      * @return array<string, mixed>
      */

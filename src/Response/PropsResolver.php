@@ -53,7 +53,7 @@ final class PropsResolver
     /** @var array<string, array<string, mixed>> */
     private array $scrollProps = [];
 
-    /** @var array<string, array{prop: string, expiresAt: int|null, fresh?: true}> */
+    /** @var array<string, array{prop: string, expiresAt: int|null}> */
     private array $onceProps = [];
 
     public function __construct(Request $request, string $component)
@@ -126,7 +126,7 @@ final class PropsResolver
     }
 
     /**
-     * @return array<string, array{prop: string, expiresAt: int|null, fresh?: true}>
+     * @return array<string, array{prop: string, expiresAt: int|null}>
      */
     public function onceProps(): array
     {
@@ -174,15 +174,14 @@ final class PropsResolver
     {
         if ($prop instanceof DeferProp) {
             if (!$this->isPartial) {
-                $this->deferredProps[$prop->getGroup()][] = $path;
+                // The client keeps its cached copy, so it must not be asked to fetch it again.
+                if (!$this->wasAlreadyLoadedByClient($prop, $path)) {
+                    $this->deferredProps[$prop->getGroup()][] = $path;
+                }
                 if ($prop->shouldMerge()) {
                     $this->collectMergeMetadata($prop, $path);
                 }
 
-                return [false, null];
-            }
-
-            if (!$this->isRequested($path) || ($prop->isOnce() && \in_array($path, $this->loadedOnceProps, true))) {
                 return [false, null];
             }
 
@@ -194,7 +193,7 @@ final class PropsResolver
         }
 
         if ($prop instanceof OptionalProp) {
-            if (!$this->isPartial || !$this->isRequested($path) || ($prop->isOnce() && \in_array($path, $this->loadedOnceProps, true))) {
+            if (!$this->isPartial) {
                 return [false, null];
             }
 
@@ -209,10 +208,6 @@ final class PropsResolver
                 return [false, null];
             }
 
-            if ($prop->shouldDefer() && !$this->isRequested($path)) {
-                return [false, null];
-            }
-
             $this->collectScrollMergeMetadata($prop, $path);
             $this->scrollProps[$path] = [...$prop->toMetadata(), 'reset' => \in_array($path, $this->reset, true)];
 
@@ -220,7 +215,7 @@ final class PropsResolver
         }
 
         if ($prop instanceof OnceProp) {
-            if (!$this->isPartial && \in_array($path, $this->loadedOnceProps, true)) {
+            if (!$this->isPartial && $this->wasAlreadyLoadedByClient($prop, $path)) {
                 return [false, null];
             }
 
@@ -265,13 +260,13 @@ final class PropsResolver
         return !$this->matchesAny($this->except, $path);
     }
 
-    /**
-     * Optional and deferred props must be named in X-Inertia-Partial-Data. Unlike inertia-laravel 3.x,
-     * an except-only partial reload does not resolve them (deliberate, see CLAUDE.md known gaps).
-     */
-    private function isRequested(string $path): bool
+    private function wasAlreadyLoadedByClient(DeferProp|OnceProp $prop, string $path): bool
     {
-        return $this->matchesAny($this->only, $path);
+        if ($prop instanceof OnceProp) {
+            return !$prop->isFresh() && \in_array($prop->getAlias() ?? $path, $this->loadedOnceProps, true);
+        }
+
+        return $prop->isOnce() && \in_array($path, $this->loadedOnceProps, true);
     }
 
     /**
@@ -348,15 +343,11 @@ final class PropsResolver
     {
         if ($prop instanceof OnceProp) {
             $expiresAt = $prop->getExpiresAt();
-            $metadata = [
+            $this->onceProps[$prop->getAlias() ?? $path] = [
                 'prop' => $path,
                 // Milliseconds: the client compares it with Date.now().
                 'expiresAt' => null !== $expiresAt ? $expiresAt->getTimestamp() * 1000 : null,
             ];
-            if ($prop->isFresh()) {
-                $metadata['fresh'] = true;
-            }
-            $this->onceProps[$prop->getAlias() ?? $path] = $metadata;
 
             return;
         }

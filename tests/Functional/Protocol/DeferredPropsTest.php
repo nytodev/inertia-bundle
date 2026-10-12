@@ -197,10 +197,8 @@ final class DeferredPropsTest extends FunctionalTestCase
         self::assertSame('deferred-once-value', $data['props']['deferred']);
     }
 
-    public function testDeferOnceSkipsResolveWhenClientSendsExceptOnceProps(): void
+    public function testDeferOnceExplicitlyRequestedIsResolvedEvenWhenClientHasIt(): void
     {
-        // Client has already cached the deferred value; it sends X-Inertia-Except-Once-Props
-        // together with X-Inertia-Partial-Data — server must NOT re-resolve.
         $this->client->request('GET', '/test/defer-once', [], [], [
             'HTTP_X_INERTIA' => 'true',
             'HTTP_X_INERTIA_PARTIAL_DATA' => 'deferred',
@@ -210,6 +208,19 @@ final class DeferredPropsTest extends FunctionalTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertArrayNotHasKey('deferred', $data['props'] ?? []);
+        self::assertSame('deferred-once-value', $data['props']['deferred']);
+    }
+
+    public function testDeferOnceAlreadyLoadedIsNotAnnouncedOnFullVisit(): void
+    {
+        $this->client->request('GET', '/test/defer-once', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_EXCEPT_ONCE_PROPS' => 'deferred',
+        ]);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('deferredProps', $data);
+        self::assertSame(['prop' => 'deferred', 'expiresAt' => null], $data['onceProps']['deferred']);
     }
 }

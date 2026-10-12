@@ -456,7 +456,7 @@ final class InertiaResponseTest extends TestCase
         self::assertLessThanOrEqual($after + 60_000, $expiresAt);
     }
 
-    public function testBuildOncePropsMetadataSetsFreshWhenFreshModifierSet(): void
+    public function testBuildOncePropsMetadataForFreshPropHasOnlyPropAndExpiresAt(): void
     {
         $request = Request::create('/home');
         $request->headers->set('X-Inertia', 'true');
@@ -467,7 +467,7 @@ final class InertiaResponseTest extends TestCase
 
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
-        self::assertTrue($data['onceProps']['plans']['fresh']);
+        self::assertSame(['prop' => 'plans', 'expiresAt' => null], $data['onceProps']['plans']);
     }
 
     public function testBuildErrorsAlwaysPresentEvenWhenDeferredPropPassedAsErrors(): void
