@@ -14,7 +14,7 @@ Implement **$ARGUMENTS** using strict Test-Driven Development.
 - NEVER write production code before a failing test exists
 - Tests live in `tests/Unit/` or `tests/Functional/Protocol/`
 - Use `declare(strict_types=1)` in every test file
-- Test naming: `test<Behavior>_<Condition>_<ExpectedResult>`
+- Test naming: `test<Behavior><Condition><ExpectedResult>` (camelCase, no underscores — enforced by php-cs-fixer `php_unit_method_casing`)
 
 ## Steps
 

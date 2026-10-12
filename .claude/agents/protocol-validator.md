@@ -48,7 +48,9 @@ Conditional fields (omitted when empty/not used):
 - [ ] `deferredProps` — `{group: [keys]}` map
 - [ ] `mergeProps`, `prependProps`, `deepMergeProps` — arrays of prop keys
 - [ ] `matchPropsOn` — array of `propName.fieldName` strings
-- [ ] `onceProps` — `{key: {prop: string, expiresAt: int|null}}` map
+- [ ] `onceProps` — `{key: {prop: string, expiresAt: int|null}}` map; `expiresAt` in **milliseconds**
+- [ ] Empty `errors` serialized as `{}` (check raw JSON — `json_decode(..., true)` hides `[]` vs `{}`)
+- [ ] Keys in `X-Inertia-Reset` absent from `mergeProps`/`prependProps`/`deepMergeProps`/`matchPropsOn`
 - [ ] `scrollProps` — scroll/pagination metadata
 
 ### 4. Asset Versioning (409 Conflict)
@@ -72,10 +74,10 @@ When `X-Inertia-Partial-Component` header is present:
 - [ ] If both headers present, `Except` takes precedence
 - [ ] `errors` prop is ALWAYS included regardless of partial reload filters
 - [ ] Component name in response matches `X-Inertia-Partial-Component` (if different page → no partial)
-- [ ] LazyProps are ONLY resolved when the key is explicitly in `X-Inertia-Partial-Data` — NOT in except-only partials
+- [ ] OptionalProps are ONLY resolved when the key is explicitly in `X-Inertia-Partial-Data` — NOT in except-only partials
 
 ### 7. Props Types
-- [ ] **LazyProp** (`optional()`): Never on full render; only when key is in `$only` list
+- [ ] **OptionalProp** (`optional()`): Never on full render; only when key is in `$only` list
 - [ ] **DeferProp** (`defer()`): Excluded from initial response; appears in `deferredProps` config; client fetches separately per group
 - [ ] **OnceProp** (`once()`): Resolved on first load; client sends loaded keys in `X-Inertia-Except-Once-Props`; server skips if already loaded; supports `.as()`, `.until()`, `.fresh()`
 - [ ] **MergeProp** (`merge()`): Included in `mergeProps`/`prependProps`/`deepMergeProps` arrays in page object

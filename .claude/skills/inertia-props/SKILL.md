@@ -21,7 +21,7 @@ Complete reference for all prop types: official PHP API, our bundle's API, behav
 
 ---
 
-## `optional()` — LazyProp
+## `optional()` — OptionalProp
 
 **Official v3 API:**
 ```php
@@ -29,7 +29,7 @@ Inertia::optional(fn () => Permission::all())
 // Chain with once:
 Inertia::optional(fn () => Permission::all())->once()
 ```
-**Our bundle:** `$inertia->optional(fn () => ...)` — canonical name. `lazy()` is a deprecated alias that still works.
+**Our bundle:** `$inertia->optional(fn () => ...)` — canonical name. `lazy()` was removed in v3 — calling it is a fatal error.
 
 - Full render: ❌ **never included**
 - Partial with `only: ['permissions']`: ✅ resolved
@@ -123,7 +123,7 @@ Our bundle: `$inertia->once(fn () => ...)` — all modifiers implemented.
 **OnceProp metadata always emitted** even when value is absent (fix 2026-04-02):
 Client needs `onceProps[key]` to know it should reinject from cache.
 
-**`expiresAt`:** Unix timestamp (seconds) or null. Client auto-invalidates when expired.
+**`expiresAt`:** Unix timestamp in **milliseconds** (`getTimestamp() * 1000`) or null — the client compares it with `Date.now()`; a seconds value is always "expired". Client auto-invalidates when expired.
 **`fresh: true`:** included in metadata when `->fresh()` is set.
 **Alias:** `onceProps` key = alias, `prop` field = original key.
 
@@ -229,7 +229,7 @@ $inertia->scroll(fn () => $posts, nextPage: 2)->defer('myGroup')
 ```
 
 **Client sends `X-Inertia-Infinite-Scroll-Merge-Intent: prepend|append`** to override the static `prepend` flag.
-**Client sends `X-Inertia-Reset: posts`** to reset before merging (handled via `$reset` array in `collectScrollProps`).
+**Client sends `X-Inertia-Reset: posts`** to replace instead of merging: the key is omitted from `mergeProps`/`prependProps`/`deepMergeProps`/`matchPropsOn` (`collectMergeArrays`) and `scrollProps.posts.reset` is `true` (`collectScrollProps`).
 
 ---
 
@@ -261,7 +261,7 @@ return Inertia::render('Page', $props)->flash('highlight', $id);
 
 ```
 errors is ALWAYS present in props, default: []
-Even if a DeferProp or LazyProp was passed as 'errors', the key always exists.
+Even if a DeferProp or OptionalProp was passed as 'errors', the key always exists.
 AlwaysProp wrapping errors in Laravel middleware — our bundle guarantees it in InertiaResponse::build().
 ```
 
