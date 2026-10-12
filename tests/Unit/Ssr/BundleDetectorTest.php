@@ -153,7 +153,10 @@ final class BundleDetectorTest extends TestCase
 
         $detector = new BundleDetector(null, $this->tempDir);
 
-        self::assertSame($bundlePath, $detector->detect());
-        self::assertSame($bundlePath, $detector->detect());
+        $first = $detector->detect();
+        $second = $detector->detect();
+
+        self::assertSame($bundlePath, $first);
+        self::assertSame($bundlePath, $second);
     }
 }

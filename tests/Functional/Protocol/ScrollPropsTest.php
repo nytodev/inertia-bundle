@@ -72,8 +72,7 @@ final class ScrollPropsTest extends FunctionalTestCase
 
         $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $html, $matches);
         $this->assertSame(1, $matched, '<script type="application/json"> tag not found in HTML');
-        $json = $matches[1] ?? null;
-        $this->assertNotNull($json, 'script tag body is empty');
+        $json = $matches[1];
         $page = json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
 
         $this->assertArrayHasKey('scrollProps', $page);

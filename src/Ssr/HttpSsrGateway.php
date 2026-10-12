@@ -51,7 +51,7 @@ final class HttpSsrGateway implements SsrGatewayInterface
             if (400 <= $statusCode) {
                 $errorData = null;
                 try {
-                    /** @var array<string, mixed>|null $errorData */
+                    /** @var array<string, mixed> $errorData */
                     $errorData = $response->toArray(false);
                 } catch (\Throwable) {
                 }
@@ -85,7 +85,7 @@ final class HttpSsrGateway implements SsrGatewayInterface
     {
         $this->exceptPaths = array_merge(
             $this->exceptPaths,
-            \is_array($paths) ? array_values($paths) : [$paths],
+            \is_array($paths) ? $paths : [$paths],
         );
     }
 

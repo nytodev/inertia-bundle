@@ -70,7 +70,7 @@ final class HistoryFlagsTest extends FunctionalTestCase
         $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $content, $matches);
         $this->assertSame(1, $matched, '<script type="application/json"> tag must be present');
 
-        $data = json_decode($matches[1] ?? '', true);
+        $data = json_decode($matches[1], true);
         $this->assertIsArray($data);
         $this->assertTrue($data['clearHistory']);
     }

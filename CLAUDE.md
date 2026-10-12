@@ -31,10 +31,8 @@ vendor/bin/php-cs-fixer fix --dry-run --diff          # code style check
 vendor/bin/php-cs-fixer fix                           # code style fix
 ```
 
-PHPStan 1.12 cannot parse the property hooks used by Symfony 8.1+ (`vendor/` resolved to 8.1 locally):
-it reports hundreds of false `unknown class Symfony\...\Request/Response` errors. CI is green because its
-matrix pins Symfony 8.0. Until PHPStan 2.x is adopted, compare error output before/after a change
-instead of expecting zero errors locally.
+PHPStan 2.x is required: 1.x cannot parse the property hooks used by Symfony 8.1+ and reports hundreds of
+false `unknown class Symfony\...\Request/Response` errors. Expected result: zero errors on `src/ tests/`.
 
 ---
 

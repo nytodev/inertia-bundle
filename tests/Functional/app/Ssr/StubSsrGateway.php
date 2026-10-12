@@ -16,7 +16,7 @@ final class StubSsrGateway implements SsrGatewayInterface
     public const HEAD = '<title>SSR Title</title><meta name="description" content="SSR">';
     public const BODY = '<div id="app"><p data-ssr="true">Server Rendered</p></div>';
 
-    public function dispatch(array $page): ?SsrResponse
+    public function dispatch(array $page): SsrResponse
     {
         return new SsrResponse(self::HEAD, self::BODY);
     }
