@@ -386,4 +386,30 @@ final class TestController
     {
         throw new \RuntimeException('Internal server error');
     }
+
+    public function nestedProps(): Response
+    {
+        $this->inertia->share('auth', [
+            'user' => static fn () => ['name' => 'Tony'],
+            'permissions' => ['read'],
+        ]);
+
+        return $this->inertia->render('TestComponent', [
+            'stats' => ['count' => static fn () => 42, 'label' => 'visits'],
+            'feed' => [
+                'posts' => new MergeProp(static fn () => [['id' => 1]], matchOn: 'id'),
+                'comments' => new DeferProp(static fn () => ['c1']),
+            ],
+            'other' => 'o',
+        ]);
+    }
+
+    public function closureOnPartialReload(): Response
+    {
+        return $this->inertia->render('TestComponent', [
+            'cheap' => 'x',
+            'expensive' => static fn () => throw new \LogicException('should not run'),
+            'reviews' => new DeferProp(static fn () => ['a']),
+        ]);
+    }
 }

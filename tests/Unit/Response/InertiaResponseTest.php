@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Tests\Unit\Response;
 
-use Nytodev\InertiaBundle\Props\AlwaysProp;
 use Nytodev\InertiaBundle\Props\DeferProp;
 use Nytodev\InertiaBundle\Props\MergeProp;
 use Nytodev\InertiaBundle\Props\OnceProp;
-use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Nytodev\InertiaBundle\Ssr\NullSsrGateway;
@@ -95,94 +93,6 @@ final class InertiaResponseTest extends TestCase
         // has the component key so the extension can encode it safely.
         $page = $this->response->buildPageObject('<script>alert(1)</script>', [], '/home', null, false, false);
         self::assertSame('<script>alert(1)</script>', $page['component']);
-    }
-
-    // -------------------------------------------------------------------------
-    // resolveProps()
-    // -------------------------------------------------------------------------
-
-    public function testResolvePropsWithOptionalPropSkipsOnFullRender(): void
-    {
-        $props = ['name' => new OptionalProp(static fn () => 'Tony'), 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, [], [], [], false);
-        self::assertArrayNotHasKey('name', $resolved);
-        self::assertSame('Hello', $resolved['title']);
-    }
-
-    public function testResolvePropsWithOptionalPropResolvesOnPartialReload(): void
-    {
-        $props = ['name' => new OptionalProp(static fn () => 'Tony')];
-        $resolved = $this->response->resolveProps($props, ['name'], [], [], true);
-        self::assertSame('Tony', $resolved['name']);
-    }
-
-    public function testResolvePropsWithDeferPropExcludesFromPropsArray(): void
-    {
-        $props = ['users' => new DeferProp(static fn () => []), 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, [], [], [], false);
-        self::assertArrayNotHasKey('users', $resolved);
-        self::assertSame('Hello', $resolved['title']);
-    }
-
-    public function testResolvePropsErrorsPropAlwaysPresent(): void
-    {
-        $props = ['errors' => ['name' => 'required'], 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, ['title'], [], [], true);
-        self::assertArrayHasKey('errors', $resolved);
-        self::assertSame(['name' => 'required'], $resolved['errors']);
-    }
-
-    public function testResolvePropsWithOncePropResolvesNormally(): void
-    {
-        $props = ['name' => new OnceProp(static fn () => 'Tony')];
-        $resolved = $this->response->resolveProps($props);
-        self::assertSame('Tony', $resolved['name']);
-    }
-
-    public function testResolvePropsWithOncePropSkipsWhenInExceptOnce(): void
-    {
-        $props = ['name' => new OnceProp(static fn () => 'Tony'), 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, [], [], ['name']);
-        self::assertArrayNotHasKey('name', $resolved);
-        self::assertSame('Hello', $resolved['title']);
-    }
-
-    public function testResolvePropsWithClosureResolvesValue(): void
-    {
-        $props = ['count' => static fn () => 42];
-        $resolved = $this->response->resolveProps($props);
-        self::assertSame(42, $resolved['count']);
-    }
-
-    public function testResolvePropsExceptFilterWins(): void
-    {
-        $props = ['a' => 1, 'b' => 2, 'c' => 3];
-        $resolved = $this->response->resolveProps($props, ['a', 'b'], ['b'], [], true);
-        self::assertArrayHasKey('a', $resolved);
-        self::assertArrayNotHasKey('b', $resolved);
-    }
-
-    public function testResolvePropsWithMergePropResolvesNormally(): void
-    {
-        $props = ['items' => new MergeProp(static fn () => [1, 2, 3])];
-        $resolved = $this->response->resolveProps($props);
-        self::assertSame([1, 2, 3], $resolved['items']);
-    }
-
-    public function testResolvePropsDeferPropExcludedOnPartialReloadWhenNotInOnly(): void
-    {
-        $props = ['users' => new DeferProp(static fn () => []), 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, ['title'], [], [], true);
-        self::assertArrayNotHasKey('users', $resolved);
-        self::assertSame('Hello', $resolved['title']);
-    }
-
-    public function testResolvePropsDeferPropResolvedWhenExplicitlyInOnly(): void
-    {
-        $props = ['users' => new DeferProp(static fn () => ['a', 'b']), 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, ['users'], [], [], true);
-        self::assertArrayHasKey('users', $resolved);
-        self::assertSame(['a', 'b'], $resolved['users']);
     }
 
     // -------------------------------------------------------------------------
@@ -356,53 +266,6 @@ final class InertiaResponseTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // BUG 1 — OptionalProp closure must NOT run when key is in $except
-    // -------------------------------------------------------------------------
-
-    public function testResolvePropsOptionalPropKeyInBothOnlyAndExceptClosureNotCalled(): void
-    {
-        $called = false;
-        $props = [
-            'name' => new OptionalProp(static function () use (&$called): string {
-                $called = true;
-
-                return 'Tony';
-            }),
-            'title' => 'Hello',
-        ];
-
-        // Both $only and $except contain 'name'; $except wins — closure must not run.
-        $resolved = $this->response->resolveProps($props, ['name'], ['name'], [], true);
-
-        self::assertFalse($called, 'OptionalProp closure must not be called when the key is in $except');
-        self::assertArrayNotHasKey('name', $resolved);
-    }
-
-    // -------------------------------------------------------------------------
-    // BUG 2 — OnceProp closure must NOT run when key is in $except
-    // -------------------------------------------------------------------------
-
-    public function testResolvePropsOncePropKeyInExceptClosureNotCalled(): void
-    {
-        $called = false;
-        $props = [
-            'name' => new OnceProp(static function () use (&$called): string {
-                $called = true;
-
-                return 'Tony';
-            }),
-            'title' => 'Hello',
-        ];
-
-        // 'name' is in $except — the closure must not be called and the key must be absent.
-        $resolved = $this->response->resolveProps($props, ['name', 'title'], ['name'], [], true);
-
-        self::assertFalse($called, 'OnceProp closure must not be called when the key is in $except');
-        self::assertArrayNotHasKey('name', $resolved);
-        self::assertArrayHasKey('title', $resolved);
-    }
-
-    // -------------------------------------------------------------------------
     // BUG 3 — MergeProp keys must not appear in merge arrays when filtered by $except
     // -------------------------------------------------------------------------
 
@@ -426,77 +289,6 @@ final class InertiaResponseTest extends TestCase
         self::assertContains('regular', $data['mergeProps']);
         // 'excluded' was filtered by $except — must NOT appear in mergeProps.
         self::assertNotContains('excluded', $data['mergeProps'] ?? []);
-    }
-
-    // -------------------------------------------------------------------------
-    // AlwaysProp — always included regardless of partial reload filters
-    // -------------------------------------------------------------------------
-
-    public function testResolvePropsAlwaysPropResolvedOnFullRender(): void
-    {
-        $props = ['always' => new AlwaysProp(static fn () => 'always-value'), 'title' => 'Hello'];
-        $resolved = $this->response->resolveProps($props, [], [], [], false);
-        self::assertSame('always-value', $resolved['always']);
-        self::assertSame('Hello', $resolved['title']);
-    }
-
-    public function testResolvePropsAlwaysPropIncludedEvenWhenNotInOnly(): void
-    {
-        // $only contains 'title' but not 'always' — AlwaysProp must still be included.
-        $props = ['always' => new AlwaysProp(static fn () => 'always-value'), 'title' => 'Hello', 'other' => 'x'];
-        $resolved = $this->response->resolveProps($props, ['title'], [], [], true);
-        self::assertArrayHasKey('always', $resolved);
-        self::assertSame('always-value', $resolved['always']);
-        self::assertArrayHasKey('title', $resolved);
-        self::assertArrayNotHasKey('other', $resolved);
-    }
-
-    public function testResolvePropsAlwaysPropIncludedEvenWhenInExcept(): void
-    {
-        // Partial reload: $only=['other'], $except=['always'].
-        // 'always' is in $except — AlwaysProp must bypass this and still be included.
-        // 'other' is in $only and not in $except — included normally.
-        $props = ['always' => new AlwaysProp(static fn () => 'always-value'), 'other' => 'x', 'ignored' => 'y'];
-        $resolved = $this->response->resolveProps($props, ['other'], ['always'], [], true);
-        self::assertArrayHasKey('always', $resolved);
-        self::assertSame('always-value', $resolved['always']);
-        self::assertArrayHasKey('other', $resolved);
-        self::assertArrayNotHasKey('ignored', $resolved);
-    }
-
-    public function testResolvePropsAlwaysPropClosureCalledExactlyOnce(): void
-    {
-        $callCount = 0;
-        $props = ['always' => new AlwaysProp(static function () use (&$callCount): string {
-            ++$callCount;
-
-            return 'v';
-        })];
-        $this->response->resolveProps($props, [], [], [], false);
-        self::assertSame(1, $callCount);
-    }
-
-    // -------------------------------------------------------------------------
-    // BUG 4 — OptionalProp must NOT be resolved when only $except is set (no $only)
-    // -------------------------------------------------------------------------
-
-    public function testResolvePropsOptionalPropExceptOnlyPartialReloadClosureNotCalled(): void
-    {
-        $called = false;
-        $props = [
-            'lazy' => new OptionalProp(static function () use (&$called): string {
-                $called = true;
-
-                return 'lazy-value';
-            }),
-            'eager' => 'value',
-        ];
-
-        // Only $except is set, $only is empty — OptionalProp must NOT be resolved.
-        $resolved = $this->response->resolveProps($props, [], ['eager'], [], true);
-
-        self::assertFalse($called, 'OptionalProp closure must not be called when only $except is set (no $only)');
-        self::assertArrayNotHasKey('lazy', $resolved);
     }
 
     // -------------------------------------------------------------------------

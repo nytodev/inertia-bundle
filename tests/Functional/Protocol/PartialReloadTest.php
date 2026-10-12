@@ -282,4 +282,34 @@ final class PartialReloadTest extends FunctionalTestCase
         // merge_b was filtered — must NOT be in mergeProps.
         self::assertNotContains('merge_b', $data['mergeProps'] ?? []);
     }
+
+    public function testPartialReloadDeferredFetchNeverCallsUnrequestedClosure(): void
+    {
+        $this->client->request('GET', '/test/closure-on-partial-reload', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_DATA' => 'reviews',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['a'], $data['props']['reviews']);
+        self::assertArrayNotHasKey('expensive', $data['props']);
+    }
+
+    public function testPartialReloadExceptNeverCallsExcludedClosure(): void
+    {
+        $this->client->request('GET', '/test/closure-on-partial-reload', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_PARTIAL_EXCEPT' => 'expensive',
+            'HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'TestComponent',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('x', $data['props']['cheap']);
+        self::assertArrayNotHasKey('expensive', $data['props']);
+    }
 }
