@@ -142,7 +142,9 @@ Returns JSON page object with headers:
 - `errors` prop is **always** included regardless of partial reload filters
 - `OptionalProp` (`optional()`) closures are **only** resolved when the key is explicitly in `X-Inertia-Partial-Data` — they are NOT resolved in except-only partial reloads or full renders.
   ⚠️ Diverges from inertia-laravel 3.x, which resolves them in except-only partial reloads (audit 2026-10-12, not yet aligned).
-- Dot-notation keys (`auth.user`) and nested closures/prop objects inside arrays are **not supported yet** (resolved recursively in inertia-laravel 3.x — known gap)
+- Props are resolved recursively (`Response\PropsResolver`): closures and prop objects nested in arrays are honoured and their metadata uses dot paths (`mergeProps: ["feed.posts"]`).
+  Partial filters accept dot paths: `only: auth.user` keeps `auth.user` and its ancestors; children of a value produced by a closure or prop object are never filtered.
+- Filtering happens **before** resolution: a closure that is not requested (or is in `except`) is never called (issue #22)
 
 ### Props types and evaluation
 
@@ -177,7 +179,8 @@ symfony-inertia-bundle/
 │   │                              optional(), always(), defer(), once(),
 │   │                              merge(), deepMerge(), location(), scroll()
 │   ├── Response/
-│   │   └── InertiaResponse.php ← builds page object, handles HTML vs JSON
+│   │   ├── InertiaResponse.php ← builds page object, handles HTML vs JSON
+│   │   └── PropsResolver.php   ← recursive props resolution, partial filtering, metadata (one instance per render)
 │   ├── EventListener/
 │   │   ├── InertiaListener.php ← kernel.request (detect, version check) + kernel.response (302→303)
 │   │   ├── InertiaExceptionListener.php ← kernel.exception → handleExceptionsUsing() callback
@@ -216,6 +219,7 @@ symfony-inertia-bundle/
             ├── AssetVersionTest.php
             ├── PartialReloadTest.php
             ├── ResetPropsTest.php
+            ├── NestedPropsTest.php
             ├── DeferredPropsTest.php
             ├── MergePropsPathTest.php
             ├── MatchPropsOnTest.php
@@ -274,12 +278,13 @@ docs(readme): add Flex installation instructions
 
 | Area | inertia-laravel 3.x | Status |
 |------|---------------------|--------|
-| Nested closures / prop objects inside arrays | Resolved recursively | ❌ Serialized as `{}` |
-| Dot-notation partial reloads (`auth.user`) | Supported | ❌ Prop dropped |
 | `handleExceptionsUsing()` | Applies to first visits (HTML) too | ❌ XHR only |
 | Optional/defer props in except-only partial reloads | Resolved | ❌ Not resolved |
 | `X-Inertia-Version` header on version-mismatch 409 | Since 3.1.1 | ❌ |
 | `defer(rescue: true)` + `rescuedProps` | Since 3.1.0 | ❌ |
+| `X-Inertia-Except-Once-Props` matched against `once()->as()` alias | Uses alias | ❌ Compared to the prop path |
+| `once()->fresh()` | Never skipped, even if the client has it | ❌ Only adds `fresh: true` metadata |
+| Dot-notation prop keys (`share('auth.user', …)`) | Unpacked into nested arrays | ❌ |
 
 ---
 

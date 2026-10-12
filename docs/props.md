@@ -156,3 +156,25 @@ A scroll prop can also be deferred:
 ```php
 $inertia->scroll(fn () => $this->paginate($page), nextPage: $next)->defer()
 ```
+
+## Nested props
+
+Closures and prop types can be nested inside arrays, including shared props. They follow the same rules as at the top level, and their metadata uses dot paths:
+
+```php
+$inertia->share('auth', [
+    'user' => fn () => $this->security->getUser()?->toArray(),
+    'permissions' => $inertia->optional(fn () => $this->permissions->forCurrentUser()),
+]);
+
+return $inertia->render('Feed/Index', [
+    'feed' => [
+        'posts' => $inertia->merge(fn () => $this->postRepo->latest(), matchOn: 'id'), // mergeProps: ["feed.posts"]
+        'comments' => $inertia->defer(fn () => $this->commentRepo->latest()),     // deferredProps: {"default": ["feed.comments"]}
+    ],
+]);
+```
+
+Partial reloads accept dot paths: `router.reload({ only: ['auth.user'] })` returns only `auth.user` (the client merges it into the existing `auth` object), and `except: ['auth.permissions']` drops only that branch. Requesting a parent (`only: ['auth']`) includes its nested optional props. Everything inside a value returned by a closure is sent as a whole.
+
+A closure is only called when the request needs it: on a partial reload, closures that are not requested — or are listed in `except` — never run.

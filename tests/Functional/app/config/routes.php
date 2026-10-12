@@ -173,4 +173,10 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_throw_server_error', '/test/throw-server-error')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwServerError']);
+
+    $routes->add('test_nested_props', '/test/nested-props')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'nestedProps']);
+
+    $routes->add('test_closure_on_partial_reload', '/test/closure-on-partial-reload')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'closureOnPartialReload']);
 };
