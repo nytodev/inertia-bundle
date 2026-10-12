@@ -1,6 +1,14 @@
 CHANGELOG
 =========
 
+3.2.0
+-----
+
+ * Added recursive props resolution: closures and prop objects (`optional()`, `defer()`, `merge()`, `once()`, `scroll()`, `always()`) nested inside arrays are now resolved instead of being serialized as `{}`; their metadata uses dot paths (e.g. `mergeProps: ["feed.posts"]`, `deferredProps: {"default": ["feed.comments"]}`)
+ * Added dot-notation partial reloads: `X-Inertia-Partial-Data` / `X-Inertia-Partial-Except` accept paths such as `auth.user` (`router.reload({ only: ['auth.user'] })`)
+ * Fixed plain closure props being evaluated on partial reloads even when not requested or explicitly excluded via `except` (#22)
+ * Removed the internal `InertiaResponse::resolveProps()` method — props are now resolved by `Response\PropsResolver`
+
 3.1.1
 -----
 
