@@ -20,7 +20,7 @@ $isPartial    = $request->headers->has('X-Inertia-Partial-Component');
 $partialComp  = $request->headers->get('X-Inertia-Partial-Component'); // component name
 $onlyProps    = $request->headers->get('X-Inertia-Partial-Data');       // CSV: include list
 $exceptProps  = $request->headers->get('X-Inertia-Partial-Except');     // CSV: exclude list
-$resetProps   = $request->headers->get('X-Inertia-Reset');              // CSV: reset before merge
+$resetProps   = $request->headers->get('X-Inertia-Reset');              // CSV: keys omitted from merge metadata → client replaces instead of merging
 $onceProps    = $request->headers->get('X-Inertia-Except-Once-Props');  // CSV: already-loaded once keys
 $scrollIntent = $request->headers->get('X-Inertia-Infinite-Scroll-Merge-Intent'); // 'append'|'prepend'
 
@@ -59,7 +59,7 @@ $response->headers->set('Content-Type', 'application/json');
 $pageObject = [
     // ALWAYS present:
     'component'      => 'User/Edit',          // string
-    'props'          => ['errors' => [], ...], // always has 'errors' key (default [])
+    'props'          => ['errors' => new \stdClass(), ...], // always has 'errors' key — empty must encode as {} not []
     'url'            => '/user/123',           // RELATIVE path + query (no scheme/host)
     'version'        => '6b16b94d7c51',        // string|null
 
@@ -186,7 +186,7 @@ isPartial = (X-Inertia-Partial-Data OR X-Inertia-Partial-Except) AND component m
 
 On full render (not partial):
   - errors: always resolved
-  - LazyProp / optional(): SKIP
+  - OptionalProp / optional(): SKIP
   - DeferProp: SKIP (goes to deferredProps metadata)
   - OnceProp: resolve UNLESS key in X-Inertia-Except-Once-Props
   - AlwaysProp: always resolve
@@ -196,7 +196,7 @@ On partial reload:
   - errors: always included (ignores $only/$except)
   - AlwaysProp: always included (ignores $only/$except)
   - $except wins over $only when both present
-  - LazyProp: only if key explicitly in $only
+  - OptionalProp: only if key explicitly in $only
   - DeferProp: only if key explicitly in $only (deferred fetch)
   - OnceProp: X-Inertia-Except-Once-Props is IGNORED on partials (only full XHR visits)
   - OnceProp: follows normal $only/$except filtering
@@ -239,7 +239,7 @@ return response('', 409, ['X-Inertia-Location' => $request->getUri()]);
 |------|---------|----------------|----------------|-----------------|
 | Direct value | `mixed` | ✅ Always | ✅ Optionally | `props` |
 | Closure | `fn() => ...` | ✅ Always | ✅ Optionally | `props` |
-| LazyProp | `optional()` *(alias: `lazy()`)* | ❌ Never | ✅ Only if in `$only` | `props` |
+| OptionalProp | `optional()` | ❌ Never | ✅ Only if in `$only` | `props` |
 | AlwaysProp | `always()` | ✅ Always | ✅ Always | `props` |
 | DeferProp | `defer($cb, $group)` | ❌ Never | ✅ Separate XHR | `deferredProps` |
 | OnceProp | `once()` | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | `props` + `onceProps` |
@@ -247,6 +247,6 @@ return response('', 409, ['X-Inertia-Location' => $request->getUri()]);
 | ScrollProp | `scroll()` | ✅ Yes | ✅ Yes | `props` + `mergeProps` + `scrollProps` |
 
 **Note on our bundle API:**
-- `optional()` is the canonical name; `lazy()` is a deprecated alias — both work
+- `optional()` is the only name; `lazy()` was removed in v3 (calling it is a fatal error)
 - `Inertia::deepMerge()` → our bundle: `$inertia->merge($cb, deep: true)` (no separate factory)
 - `Inertia::defer()->once()` → not yet supported in our bundle

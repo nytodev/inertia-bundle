@@ -41,7 +41,7 @@ symfony-inertia-bundle/
 │   ├── EventListener/
 │   │   └── InertiaListener.php  ← kernel.request + kernel.response
 │   ├── Props/
-│   │   ├── LazyProp.php
+│   │   ├── OptionalProp.php
 │   │   ├── DeferProp.php
 │   │   ├── OnceProp.php
 │   │   └── MergeProp.php
@@ -139,7 +139,7 @@ inertia:
 3. **Version mismatch** → `409 Conflict` + header `X-Inertia-Location: <url>` (GET uniquement)
 4. **302 → 303** : convertir automatiquement après PUT/PATCH/DELETE
 5. **Partial reload** : `X-Inertia-Partial-Data` (inclusion) ou `X-Inertia-Partial-Except` (exclusion), `errors` toujours inclus
-6. **LazyProp** : closures résolues uniquement si la prop est demandée
+6. **OptionalProp** (`optional()`) : closures résolues uniquement si la prop est demandée
 7. **DeferProp** : exclu du premier rendu, chargé par le client en XHR séparé
 
 ### Headers de requête à détecter
@@ -179,7 +179,7 @@ tests/
 ├── Unit/
 │   ├── Service/InertiaTest.php
 │   ├── Response/InertiaResponseTest.php
-│   └── Props/LazyPropTest.php
+│   └── Props/OptionalPropTest.php
 └── Functional/
     ├── Protocol/
     │   ├── FirstVisitTest.php       ← HTML + data-page
@@ -194,7 +194,7 @@ tests/
 
 ### Règles de test
 - Un test = un comportement précis du protocole
-- Nommer les tests : `test<Comportement>_<Condition>_<Résultat>` (ex: `testXhrVisit_WithVersionMismatch_Returns409`)
+- Nommer les tests : `test<Comportement><Condition><Résultat>` en camelCase sans underscore (ex: `testXhrVisitWithVersionMismatchReturns409`) — imposé par php-cs-fixer (`php_unit_method_casing`)
 - Utiliser `WebTestCase` pour les tests fonctionnels
 - Toujours tester les deux chemins : Inertia XHR ET requête HTML normale
 - Vérifier les headers HTTP précisément avec `assertResponseHasHeader()`
