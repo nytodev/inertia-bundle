@@ -8,7 +8,10 @@ use Nytodev\InertiaBundle\Response\InertiaResponse;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Serializer;
 use Twig\Environment;
 
 /**
@@ -193,5 +196,17 @@ final class InertiaResponseSerializationTest extends TestCase
             request: $request,
             serializationContext: ['groups' => ['api']],
         );
+    }
+
+    public function testEmptyErrorsWithRealSerializerStillSerializedAsEmptyJsonObject(): void
+    {
+        $serializer = new Serializer([new ObjectNormalizer()], [new JsonEncoder()]);
+        $response = new InertiaResponse($this->twig, 'base.html.twig', $serializer);
+        $request = Request::create('/test');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $response->build('Users/Index', [], '/test', null, $request, serializationContext: []);
+
+        self::assertStringContainsString('"errors":{}', (string) $result->getContent());
     }
 }

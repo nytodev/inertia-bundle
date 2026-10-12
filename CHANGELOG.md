@@ -1,6 +1,13 @@
 CHANGELOG
 =========
 
+3.1.1
+-----
+
+ * Fixed `onceProps.*.expiresAt` emitted in seconds instead of milliseconds — the client compares it with `Date.now()`, so every `once()->until()` prop was treated as already expired and re-resolved on each visit
+ * Fixed keys listed in `X-Inertia-Reset` still being emitted in `mergeProps` / `prependProps` / `deepMergeProps` / `matchPropsOn` — `router.reload({ reset: [...] })` merged into the client value instead of replacing it (merge, deferred merge and scroll props)
+ * Fixed empty `errors` prop serialized as `[]` instead of `{}` (XHR, first visit and Serializer paths)
+
 3.1.0
 -----
 

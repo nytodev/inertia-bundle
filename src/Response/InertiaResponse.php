@@ -73,13 +73,14 @@ final class InertiaResponse
         $resolved = $this->resolveProps($props, $only, $except, $exceptOnce, $isPartial);
 
         // Guarantee: errors must always be present, even if a DeferProp/OptionalProp was passed as 'errors'.
-        if (!\array_key_exists('errors', $resolved)) {
-            $resolved['errors'] = [];
+        // Empty errors must serialize as {} — an empty PHP array would encode as [] (inertia-laravel: (object) []).
+        if (!\array_key_exists('errors', $resolved) || [] === $resolved['errors']) {
+            $resolved['errors'] = new \stdClass();
         }
 
         // Collect merge arrays AFTER resolving+filtering so excluded keys are absent.
         $scrollMergeIntent = $request->headers->get('X-Inertia-Infinite-Scroll-Merge-Intent');
-        [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved, $scrollMergeIntent, $isPartial);
+        [$mergeProps, $prependProps, $deepMergeProps, $matchPropsOn] = $this->collectMergeArrays($props, $resolved, $reset, $scrollMergeIntent, $isPartial);
         $scrollProps = $this->collectScrollProps($props, $resolved, $reset);
 
         // Collect onceProps metadata for ALL OnceProp instances, even when skipped via
@@ -94,7 +95,8 @@ final class InertiaResponse
                 $alias = $prop->getAlias();
                 $meta = [
                     'prop' => $key,
-                    'expiresAt' => null !== $expiresAt ? $expiresAt->getTimestamp() : null,
+                    // Milliseconds: the client compares it with Date.now().
+                    'expiresAt' => null !== $expiresAt ? $expiresAt->getTimestamp() * 1000 : null,
                 ];
                 if ($prop->isFresh()) {
                     $meta['fresh'] = true;
@@ -321,15 +323,19 @@ final class InertiaResponse
      * ScrollProp: same rule as DeferProp — on initial load always included (even when deferred);
      * on partial reloads only when resolved.
      *
+     * Keys listed in X-Inertia-Reset are omitted entirely so the client replaces their value
+     * instead of merging it (scrollProps still carries the reset flag).
+     *
      * @param array<string, mixed> $rawProps          original props before resolution
      * @param array<string, mixed> $resolvedProps     props after resolution and filtering
+     * @param string[]             $reset             keys from X-Inertia-Reset
      * @param string|null          $scrollMergeIntent value of X-Inertia-Infinite-Scroll-Merge-Intent header;
      *                                                when set, overrides the static $prepend flag on ScrollProp
      * @param bool                 $isPartial         whether this is a partial reload request
      *
      * @return array{0: list<string>, 1: list<string>, 2: list<string>, 3: list<string>}
      */
-    private function collectMergeArrays(array $rawProps, array $resolvedProps, ?string $scrollMergeIntent = null, bool $isPartial = false): array
+    private function collectMergeArrays(array $rawProps, array $resolvedProps, array $reset = [], ?string $scrollMergeIntent = null, bool $isPartial = false): array
     {
         $mergeProps = [];
         $prependProps = [];
@@ -337,6 +343,10 @@ final class InertiaResponse
         $matchPropsOn = [];
 
         foreach ($rawProps as $key => $prop) {
+            if (\in_array($key, $reset, true)) {
+                continue;
+            }
+
             // DeferProp with merge semantics: announce merge metadata on initial load so the client
             // is ready to merge when the deferred XHR resolves. On partial reloads, only emit
             // when the key was actually fetched (i.e. appeared in X-Inertia-Partial-Data).

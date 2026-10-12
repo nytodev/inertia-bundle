@@ -642,7 +642,26 @@ final class InertiaResponseTest extends TestCase
         $data = json_decode((string) $result->getContent(), true);
         self::assertIsArray($data);
         self::assertIsInt($data['onceProps']['plans']['expiresAt']);
-        self::assertSame((new \DateTimeImmutable('2030-06-01T12:00:00+00:00'))->getTimestamp(), $data['onceProps']['plans']['expiresAt']);
+        // Milliseconds: the client compares expiresAt with Date.now() (matches inertia-laravel).
+        self::assertSame($expiry->getTimestamp() * 1000, $data['onceProps']['plans']['expiresAt']);
+    }
+
+    public function testOncePropExpiresAtWithTtlInSecondsIsMillisecondTimestampInTheFuture(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $before = time() * 1000;
+        $result = $this->response->build('Home', [
+            'plans' => (new OnceProp(static fn () => ['basic', 'pro']))->until(60),
+        ], '/home', null, $request);
+        $after = time() * 1000;
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        $expiresAt = $data['onceProps']['plans']['expiresAt'];
+        self::assertGreaterThanOrEqual($before + 60_000, $expiresAt);
+        self::assertLessThanOrEqual($after + 60_000, $expiresAt);
     }
 
     public function testBuildOncePropsMetadataSetsFreshWhenFreshModifierSet(): void
@@ -673,5 +692,124 @@ final class InertiaResponseTest extends TestCase
         self::assertIsArray($data);
         self::assertArrayHasKey('errors', $data['props']);
         self::assertSame([], $data['props']['errors']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Empty errors → JSON object {} (inertia-laravel: (object) [])
+    // Raw JSON assertions: json_decode(..., true) maps both {} and [] to [].
+    // -------------------------------------------------------------------------
+
+    public function testErrorsWhenAbsentOnXhrVisitSerializedAsEmptyJsonObject(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', ['foo' => 'bar'], '/home', null, $request);
+
+        self::assertStringContainsString('"errors":{}', (string) $result->getContent());
+    }
+
+    public function testErrorsWhenExplicitlyEmptyOnXhrVisitSerializedAsEmptyJsonObject(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', ['errors' => []], '/home', null, $request);
+
+        self::assertStringContainsString('"errors":{}', (string) $result->getContent());
+    }
+
+    public function testErrorsWhenEmptyOnFirstVisitSerializedAsEmptyJsonObjectInScriptTag(): void
+    {
+        $result = $this->response->build('Home', ['errors' => []], '/home', null, Request::create('/home'));
+
+        self::assertStringContainsString('"errors":{}', (string) $result->getContent());
+    }
+
+    public function testErrorsWhenNotEmptySerializedAsFieldMessageObject(): void
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+
+        $result = $this->response->build('Home', ['errors' => ['email' => 'Invalid']], '/home', null, $request);
+
+        self::assertStringContainsString('"errors":{"email":"Invalid"}', (string) $result->getContent());
+    }
+
+    // -------------------------------------------------------------------------
+    // X-Inertia-Reset → key excluded from merge metadata so the client replaces
+    // the value instead of merging it (inertia-laravel: collectMergeableMetadata)
+    // -------------------------------------------------------------------------
+
+    public function testResetHeaderOnMergePropExcludesKeyFromAllMergeMetadata(): void
+    {
+        $result = $this->response->build('Home', [
+            'posts' => new MergeProp(static fn () => [['id' => 1]], matchOn: 'id'),
+            'feed' => new MergeProp(static fn () => [['id' => 2]], prepend: true),
+            'tree' => new MergeProp(static fn () => ['a' => 1], deep: true),
+        ], '/home', null, $this->makeResetRequest('posts,feed,tree'));
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame([['id' => 1]], $data['props']['posts']);
+        self::assertArrayNotHasKey('mergeProps', $data);
+        self::assertArrayNotHasKey('prependProps', $data);
+        self::assertArrayNotHasKey('deepMergeProps', $data);
+        self::assertArrayNotHasKey('matchPropsOn', $data);
+    }
+
+    public function testResetHeaderOnOneMergePropKeepsMergeMetadataOfOtherProps(): void
+    {
+        $request = $this->makeResetRequest('posts');
+        $request->headers->set('X-Inertia-Partial-Data', 'posts,comments');
+
+        $result = $this->response->build('Home', [
+            'posts' => new MergeProp(static fn () => [1]),
+            'comments' => new MergeProp(static fn () => [2]),
+        ], '/home', null, $request);
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['comments'], $data['mergeProps']);
+    }
+
+    public function testResetHeaderOnDeferredMergePropExcludesKeyFromMergeMetadata(): void
+    {
+        $result = $this->response->build('Home', [
+            'posts' => (new DeferProp(static fn () => [['id' => 1]]))->merge()->matchOn('id'),
+        ], '/home', null, $this->makeResetRequest('posts'));
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame([['id' => 1]], $data['props']['posts']);
+        self::assertArrayNotHasKey('mergeProps', $data);
+        self::assertArrayNotHasKey('matchPropsOn', $data);
+    }
+
+    public function testResetHeaderOnScrollPropExcludesKeyFromMergePropsButKeepsResetFlag(): void
+    {
+        $result = $this->response->build('Home', [
+            'posts' => new ScrollProp(static fn () => [['id' => 1]], nextPage: 2),
+        ], '/home', null, $this->makeResetRequest('posts'));
+
+        $data = json_decode((string) $result->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayNotHasKey('mergeProps', $data);
+        self::assertArrayNotHasKey('prependProps', $data);
+        self::assertTrue($data['scrollProps']['posts']['reset']);
+    }
+
+    /**
+     * Mirrors the v3 client: reset keys are also appended to X-Inertia-Partial-Data.
+     */
+    private function makeResetRequest(string $keys): Request
+    {
+        $request = Request::create('/home');
+        $request->headers->set('X-Inertia', 'true');
+        $request->headers->set('X-Inertia-Partial-Component', 'Home');
+        $request->headers->set('X-Inertia-Partial-Data', $keys);
+        $request->headers->set('X-Inertia-Reset', $keys);
+
+        return $request;
     }
 }
