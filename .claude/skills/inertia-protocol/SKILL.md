@@ -196,8 +196,8 @@ On partial reload:
   - errors: always included (ignores $only/$except)
   - AlwaysProp: always included (ignores $only/$except)
   - $except wins over $only when both present
-  - OptionalProp: only if key explicitly in $only
-  - DeferProp: only if key explicitly in $only (deferred fetch)
+  - OptionalProp: if key in $only, or $only empty (except-only reload) and key not in $except
+  - DeferProp: same rule (deferred fetch = key in $only)
   - OnceProp: X-Inertia-Except-Once-Props is IGNORED on partials (only full XHR visits)
   - OnceProp: follows normal $only/$except filtering
   - MergeProp, ScrollProp: follows $only/$except filtering
@@ -239,7 +239,7 @@ return response('', 409, ['X-Inertia-Location' => $request->getUri()]);
 |------|---------|----------------|----------------|-----------------|
 | Direct value | `mixed` | ✅ Always | ✅ Optionally | `props` |
 | Closure | `fn() => ...` | ✅ Always | ✅ Optionally | `props` |
-| OptionalProp | `optional()` | ❌ Never | ✅ Only if in `$only` | `props` |
+| OptionalProp | `optional()` | ❌ Never | ✅ If in `$only`, or not excluded on an except-only reload | `props` |
 | AlwaysProp | `always()` | ✅ Always | ✅ Always | `props` |
 | DeferProp | `defer($cb, $group)` | ❌ Never | ✅ Separate XHR | `deferredProps` |
 | OnceProp | `once()` | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` | `props` + `onceProps` |

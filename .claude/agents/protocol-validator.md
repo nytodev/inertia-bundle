@@ -74,7 +74,7 @@ When `X-Inertia-Partial-Component` header is present:
 - [ ] If both headers present, `Except` takes precedence
 - [ ] `errors` prop is ALWAYS included regardless of partial reload filters
 - [ ] Component name in response matches `X-Inertia-Partial-Component` (if different page → no partial)
-- [ ] OptionalProps are ONLY resolved when the key is explicitly in `X-Inertia-Partial-Data` — NOT in except-only partials
+- [ ] OptionalProps are resolved on partial reloads when named in `X-Inertia-Partial-Data`, or on except-only reloads that do not exclude them
 
 ### 7. Props Types
 - [ ] **OptionalProp** (`optional()`): Never on full render; only when key is in `$only` list

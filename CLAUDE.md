@@ -140,8 +140,9 @@ Returns JSON page object with headers:
   `deepMergeProps`, `matchPropsOn`) so the client replaces the value instead of merging; `scrollProps.<key>.reset` is `true`.
   The v3 client also appends reset keys to `X-Inertia-Partial-Data`.
 - `errors` prop is **always** included regardless of partial reload filters
-- `OptionalProp` (`optional()`) closures are **only** resolved when the key is explicitly in `X-Inertia-Partial-Data` — they are NOT resolved in except-only partial reloads or full renders.
-  ⚠️ Diverges from inertia-laravel 3.x, which resolves them in except-only partial reloads (audit 2026-10-12, not yet aligned).
+- `OptionalProp` / `DeferProp` are never resolved on full renders. On a partial reload they are resolved whenever they pass
+  the partial filter: named in `X-Inertia-Partial-Data` (or an ancestor of a requested path such as `stats.logins`), or
+  not excluded on an except-only reload (inertia-laravel 3.x).
 - Props are resolved recursively (`Response\PropsResolver`): closures and prop objects nested in arrays are honoured and their metadata uses dot paths (`mergeProps: ["feed.posts"]`).
   Partial filters accept dot paths: `only: auth.user` keeps `auth.user` and its ancestors; children of a value produced by a closure or prop object are never filtered.
 - Filtering happens **before** resolution: a closure that is not requested (or is in `except`) is never called (issue #22)
@@ -152,10 +153,10 @@ Returns JSON page object with headers:
 |------|---------------|----------------|-------|
 | `mixed` (direct value) | ✅ Always | ✅ Optionally | Resolved always |
 | `Closure` | ✅ Always | ✅ Optionally | Lazy-evaluated |
-| `OptionalProp` (`optional()`) | ❌ Never | ✅ Only if in `$only` | Must be explicitly requested; `lazy()` no longer exists |
+| `OptionalProp` (`optional()`) | ❌ Never | ✅ If in `$only`, or not excluded on an except-only reload | `lazy()` no longer exists |
 | `AlwaysProp` (`always()`) | ✅ Always | ✅ Always | Included even in partial reloads |
 | `DeferProp` (`defer()`) | ❌ Never (in `deferredProps`) | ✅ Separate XHR | Client fetches per group |
-| `OnceProp` (`once()`) | ✅ First time | ❌ Skip if in `X-Inertia-Except-Once-Props` (full XHR visits only; ignored on partial reloads) | Client caches; supports `.as()`, `.until()`, `.fresh()` |
+| `OnceProp` (`once()`) | ✅ First time | ✅ Always (`X-Inertia-Except-Once-Props` only applies to full XHR visits) | Client caches; skipped when its `as()` alias (or path) is in `X-Inertia-Except-Once-Props`, unless `fresh()`. A `defer()->once()` the client has is not listed in `deferredProps` |
 | `MergeProp` (`merge()`) | ✅ Yes | ✅ Yes | Populates `mergeProps`/`prependProps`/`deepMergeProps` |
 
 ---
@@ -279,11 +280,8 @@ docs(readme): add Flex installation instructions
 | Area | inertia-laravel 3.x | Status |
 |------|---------------------|--------|
 | `handleExceptionsUsing()` | Applies to first visits (HTML) too | ❌ XHR only |
-| Optional/defer props in except-only partial reloads | Resolved | ❌ Not resolved |
 | `X-Inertia-Version` header on version-mismatch 409 | Since 3.1.1 | ❌ |
 | `defer(rescue: true)` + `rescuedProps` | Since 3.1.0 | ❌ |
-| `X-Inertia-Except-Once-Props` matched against `once()->as()` alias | Uses alias | ❌ Compared to the prop path |
-| `once()->fresh()` | Never skipped, even if the client has it | ❌ Only adds `fresh: true` metadata |
 | Dot-notation prop keys (`share('auth.user', …)`) | Unpacked into nested arrays | ❌ |
 
 ---

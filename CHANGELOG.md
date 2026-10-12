@@ -8,6 +8,12 @@ CHANGELOG
  * Added dot-notation partial reloads: `X-Inertia-Partial-Data` / `X-Inertia-Partial-Except` accept paths such as `auth.user` (`router.reload({ only: ['auth.user'] })`)
  * Fixed plain closure props being evaluated on partial reloads even when not requested or explicitly excluded via `except` (#22)
  * Removed the internal `InertiaResponse::resolveProps()` method — props are now resolved by `Response\PropsResolver`
+ * Changed `optional()` and `defer()` props to be resolved on except-only partial reloads (`router.reload({ except: [...] })`) unless excluded, matching inertia-laravel — previously they were silently left stale on the client
+ * Changed `optional()->once()` and `defer()->once()` props to always be resolved when explicitly requested (`only`), even if the client already has them — previously they could never be refreshed
+ * Fixed `X-Inertia-Except-Once-Props` being matched against the prop path instead of the `once()->as()` alias, so aliased once props were never served from the client cache
+ * Fixed `once()->fresh()` having no effect: the prop is now resolved even when the client already has it. The non-standard `fresh: true` entry is no longer emitted in `onceProps`
+ * Fixed `defer()->once()` props the client already has being listed in `deferredProps`, which triggered a useless deferred request
+ * Fixed docs and README still documenting the removed `lazy()` method (use `optional()`)
 
 3.1.1
 -----

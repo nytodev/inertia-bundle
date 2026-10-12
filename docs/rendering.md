@@ -79,4 +79,4 @@ The client sends `X-Inertia-Except-Once-Props` to request a fresh value.
 
 1. Shared props are merged with component props (`array_merge` — component wins on key conflict).
 2. Closures are resolved lazily at render time.
-3. Special prop types (`LazyProp`, `DeferProp`, etc.) are resolved according to their own rules — see [Prop types](props.md).
+3. Special prop types (`OptionalProp`, `DeferProp`, etc.) are resolved according to their own rules — see [Prop types](props.md).
