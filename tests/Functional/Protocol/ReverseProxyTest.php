@@ -175,7 +175,7 @@ final class ReverseProxyTest extends FunctionalTestCase
         $content = (string) $this->client->getResponse()->getContent();
         $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $content, $matches);
         self::assertSame(1, $matched, '<script type="application/json"> tag not found');
-        $page = json_decode($matches[1] ?? '', true);
+        $page = json_decode($matches[1], true);
         self::assertIsArray($page);
 
         return $page;

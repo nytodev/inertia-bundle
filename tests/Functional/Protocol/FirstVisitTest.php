@@ -53,7 +53,7 @@ final class FirstVisitTest extends FunctionalTestCase
         $content = (string) $this->client->getResponse()->getContent();
         $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]*)<\/script>/s', $content, $m);
         self::assertSame(1, $matched, '<script type="application/json"> tag not found');
-        self::assertStringNotContainsString('</script>', $m[1] ?? '');
+        self::assertStringNotContainsString('</script>', $m[1]);
     }
 
     public function testFirstVisitPageObjectContainsAllRequiredV3Fields(): void
@@ -88,8 +88,7 @@ final class FirstVisitTest extends FunctionalTestCase
         $content = (string) $this->client->getResponse()->getContent();
         $matched = preg_match('/<script[^>]+type="application\/json"[^>]*>([^<]+)<\/script>/s', $content, $matches);
         self::assertSame(1, $matched, '<script type="application/json"> tag not found in response');
-        $json = $matches[1] ?? null;
-        self::assertNotNull($json, 'script tag body is empty');
+        $json = $matches[1];
         $page = json_decode($json, true);
         self::assertIsArray($page);
 
