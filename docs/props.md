@@ -14,6 +14,20 @@ Beyond plain values and closures, the bundle provides several special prop types
 | `MergeProp` | `merge()` / `deepMerge()` | ✅ Always | ✅ Always | Merged into existing client value |
 | `ScrollProp` | `scroll()` | ✅ Always | ✅ Always | Merge + pagination metadata |
 
+## Closures
+
+A closure prop is called only when the response needs its value. It is called **without arguments**, as are the closures given to `optional()`, `defer()`, `once()`, `merge()` and the other prop types. Unlike inertia-laravel, the bundle injects no services into them. Capture what the closure needs from the controller instead:
+
+```php
+public function index(Inertia $inertia, UserRepository $users): Response
+{
+    return $inertia->render('Users/Index', [
+        'users' => fn () => $users->findAll(),
+        'stats' => $inertia->optional(fn () => $users->countByRole()),
+    ]);
+}
+```
+
 ## OptionalProp — optional props
 
 Never sent on full renders. Resolved on a partial reload that requests it: `router.reload({ only: ['comments'] })`, or an `except`-only reload that does not exclude it (same as inertia-laravel). Use for expensive data only needed on demand (e.g. a detail panel).

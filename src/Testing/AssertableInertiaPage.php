@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Fluent DSL for asserting Inertia.js page objects in tests.
  *
  * Works with both XHR responses (JSON body) and HTML first-visit responses
- * (data-page attribute).
+ * (<script data-page="app" type="application/json"> tag).
  *
  * Usage:
  *   AssertableInertiaPage::fromResponse($response)
@@ -179,16 +179,22 @@ final class AssertableInertiaPage
     /**
      * Asserts a prop value equals the expected value (dot notation supported).
      *
-     * When $expected is a Closure, it receives the actual value for custom assertions.
+     * When $expected is a Closure, it receives the actual value: returning false fails the assertion,
+     * and a void closure can make its own assertions.
      *
-     * @param mixed|\Closure(mixed):void $expected
+     * @param mixed|\Closure(mixed):(bool|void) $expected
      */
     public function where(string $key, mixed $expected): static
     {
         $actual = $this->resolveProp($key);
 
         if ($expected instanceof \Closure) {
-            $expected($actual);
+            $result = $expected($actual);
+
+            // Only a bool is checked so that void closures with their own assertions keep working.
+            if (\is_bool($result)) {
+                Assert::assertTrue($result, "Inertia prop [{$key}] was marked as invalid using a closure.");
+            }
         } else {
             Assert::assertSame(
                 $expected,
