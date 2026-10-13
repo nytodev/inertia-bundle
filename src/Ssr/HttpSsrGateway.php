@@ -26,6 +26,7 @@ final class HttpSsrGateway implements SsrGatewayInterface
         private readonly ?BundleDetectorInterface $bundleDetector = null,
         private readonly bool $throwOnError = false,
         private readonly ?RequestStack $requestStack = null,
+        private readonly ?float $timeout = null,
     ) {
     }
 
@@ -42,9 +43,7 @@ final class HttpSsrGateway implements SsrGatewayInterface
         $url = rtrim($this->ssrUrl, '/').'/render';
 
         try {
-            $response = $this->httpClient->request('POST', $url, [
-                'json' => $page,
-            ]);
+            $response = $this->httpClient->request('POST', $url, ['json' => $page] + $this->timeoutOptions());
 
             $statusCode = $response->getStatusCode();
 
@@ -61,7 +60,6 @@ final class HttpSsrGateway implements SsrGatewayInterface
                 return null;
             }
 
-            /** @var array{head: list<string>, body: string} $data */
             $data = $response->toArray();
         } catch (ExceptionInterface $e) {
             $this->handleFailure($page, [
@@ -72,10 +70,16 @@ final class HttpSsrGateway implements SsrGatewayInterface
             return null;
         }
 
-        return new SsrResponse(
-            implode("\n", $data['head']),
-            $data['body'],
-        );
+        $head = $data['head'] ?? [];
+        $body = $data['body'] ?? null;
+
+        if (!\is_string($body) || !\is_array($head) || [] !== array_filter($head, static fn (mixed $tag): bool => !\is_string($tag))) {
+            $this->handleFailure($page, ['error' => 'Invalid SSR response: expected {"head": string[], "body": string}.']);
+
+            return null;
+        }
+
+        return new SsrResponse(implode("\n", $head), $body);
     }
 
     /**
@@ -94,12 +98,22 @@ final class HttpSsrGateway implements SsrGatewayInterface
         $url = rtrim($this->ssrUrl, '/').'/health';
 
         try {
-            $response = $this->httpClient->request('GET', $url);
+            $response = $this->httpClient->request('GET', $url, $this->timeoutOptions());
 
             return 200 === $response->getStatusCode();
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Same value for both: `timeout` alone is an idle timeout, `max_duration` bounds the whole request.
+     *
+     * @return array{timeout?: float, max_duration?: float}
+     */
+    private function timeoutOptions(): array
+    {
+        return null === $this->timeout ? [] : ['timeout' => $this->timeout, 'max_duration' => $this->timeout];
     }
 
     private function isExcluded(): bool

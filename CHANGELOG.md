@@ -20,6 +20,10 @@ CHANGELOG
  * Changed error bag resolution to match inertia-laravel: when the `default` bag exists, only it is sent (wrapped under `X-Inertia-Error-Bag` when present) — previously a second named bag switched the whole `errors` prop to a per-bag object the client could not read
  * Added dot-notation prop keys: `share('auth.user', ...)` or `render(..., ['auth.user.role' => ...])` are nested into the props tree (inertia-laravel `unpackDotProps`), and `sharedProps` lists their first segment (`["auth"]`) — previously the flat key was sent as is
  * Fixed a prop type returning another prop type (e.g. `always(fn () => merge(...))`) being serialized as `{}`: the inner prop is now resolved with its own rules and metadata
+ * Fixed a relative `ssr_bundle` being resolved against the working directory instead of the project root: under PHP-FPM (working directory `public/`) the bundle was not found and SSR was silently skipped
+ * Fixed an SSR server response that is not `{"head": string[], "body": string}` (e.g. `{}`) causing a 500 error: it now dispatches `SsrRenderFailed` (or throws with `ssr_throw_on_error`) and falls back to client-side rendering. A missing `head` is accepted
+ * Added the `ssr_ensure_bundle_exists` option (default `true`): set it to `false` when the SSR server runs on another host or container and the bundle file is not available to PHP
+ * Added the `ssr_timeout` option (seconds, default `null`) applied to SSR render and health check requests — previously PHP `default_socket_timeout` (60s) applied
 
 3.1.1
 -----

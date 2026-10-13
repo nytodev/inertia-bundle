@@ -58,7 +58,10 @@ inertia:
     # Server-Side Rendering — requires symfony/http-client.
     ssr_enabled: false
     ssr_url: 'http://127.0.0.1:13714'
-    ssr_bundle: null   # auto-detected from bootstrap/ssr/ssr.mjs or public/build/ssr/ssr.mjs
+    ssr_bundle: null   # relative to the project root; auto-detected from bootstrap/ssr/ssr.mjs or public/build/ssr/ssr.mjs
+    ssr_ensure_bundle_exists: true   # set to false when the SSR server runs in another container
+    ssr_timeout: null  # seconds; null = PHP default_socket_timeout
+    ssr_throw_on_error: false
 ```
 
 ## Root Twig template

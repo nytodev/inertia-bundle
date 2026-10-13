@@ -72,6 +72,29 @@ final class BundleDetectorTest extends TestCase
         self::assertNull($detector->detect());
     }
 
+    public function testDetectWithRelativeConfiguredPathResolvesAgainstProjectDir(): void
+    {
+        $bundlePath = $this->createFile('public/build/ssr/ssr.js');
+        $cwd = (string) getcwd();
+        // Under PHP-FPM the working directory is usually public/, not the project root.
+        chdir(sys_get_temp_dir());
+
+        try {
+            $detector = new BundleDetector('public/build/ssr/ssr.js', $this->tempDir);
+
+            self::assertSame($bundlePath, $detector->detect());
+        } finally {
+            chdir($cwd);
+        }
+    }
+
+    public function testDetectWithRelativeConfiguredPathThatDoesNotExistReturnsNull(): void
+    {
+        $detector = new BundleDetector('public/build/ssr/missing.js', $this->tempDir);
+
+        self::assertNull($detector->detect());
+    }
+
     // --- auto-detection (no configured path) ---
 
     public function testDetectWithNullConfiguredPathDetectsBootstrapSsrMjs(): void
