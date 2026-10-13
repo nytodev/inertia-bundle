@@ -119,7 +119,12 @@ final class Inertia implements ResetInterface
             $this->consumeErrors($request);
         }
 
-        $sharedPropKeys = $this->exposeSharedPropKeys ? array_keys($this->sharedProps) : [];
+        $sharedPropKeys = $this->exposeSharedPropKeys
+            ? array_values(array_unique(array_map(
+                static fn (string $key): string => explode('.', $key, 2)[0],
+                array_keys($this->sharedProps),
+            )))
+            : [];
 
         return $this->inertiaResponse->build(
             $component,

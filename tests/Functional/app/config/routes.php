@@ -158,6 +158,9 @@ return static function (RoutingConfigurator $routes): void {
     $routes->add('test_shared_props_empty', '/test/shared-props-empty')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'sharedPropsEmpty']);
 
+    $routes->add('test_shared_props_dot_keys', '/test/shared-props-dot-keys')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'sharedPropsDotKeys']);
+
     $routes->add('test_map_request_payload_form', '/test/map-request-payload')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mapRequestPayloadForm'])
         ->methods(['GET']);

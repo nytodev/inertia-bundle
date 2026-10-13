@@ -373,6 +373,15 @@ final class TestController
         return $this->inertia->render('TestComponent', ['local' => 'value']);
     }
 
+    public function sharedPropsDotKeys(): Response
+    {
+        $this->inertia->share('auth.user', static fn () => ['name' => 'Alice']);
+        $this->inertia->share('auth.permissions', ['edit-posts']);
+        $this->inertia->share('appName', 'MyApp');
+
+        return $this->inertia->render('TestComponent', ['auth.user.role' => 'admin']);
+    }
+
     public function sharedPropsEmpty(): Response
     {
         return $this->inertia->render('TestComponent', ['local' => 'value']);

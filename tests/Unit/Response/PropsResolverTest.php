@@ -346,6 +346,117 @@ final class PropsResolverTest extends TestCase
         self::assertSame(['sidebar' => ['comments']], $resolver->deferredProps());
     }
 
+    public function testAlwaysPropReturningMergePropEmitsMergeMetadata(): void
+    {
+        [$props, $resolver] = $this->resolve(['feed' => new AlwaysProp(static fn () => new MergeProp(static fn () => ['p1']))]);
+
+        self::assertSame(['feed' => ['p1']], $props);
+        self::assertSame(['feed'], $resolver->mergeProps());
+    }
+
+    public function testAlwaysPropReturningDeferPropIsDeferredOnFullRender(): void
+    {
+        [$props, $resolver] = $this->resolve(['comments' => new AlwaysProp(static fn () => new DeferProp(static fn () => ['c1']))]);
+
+        self::assertSame([], $props);
+        self::assertSame(['default' => ['comments']], $resolver->deferredProps());
+    }
+
+    public function testMergePropReturningOncePropEmitsOnceMetadata(): void
+    {
+        [$props, $resolver] = $this->resolve(['plans' => new MergeProp(static fn () => new OnceProp(static fn () => ['basic']))]);
+
+        self::assertSame(['plans' => ['basic']], $props);
+        self::assertSame(['plans'], $resolver->mergeProps());
+        self::assertSame(['plans' => ['prop' => 'plans', 'expiresAt' => null]], $resolver->onceProps());
+    }
+
+    public function testTopLevelDotKeyIsUnpackedIntoExistingNestedArray(): void
+    {
+        [$props] = $this->resolve([
+            'auth' => ['user' => ['name' => 'Tony']],
+            'auth.user.can' => ['do.stuff' => true],
+        ]);
+
+        self::assertSame(['auth' => ['user' => ['name' => 'Tony', 'can' => ['do.stuff' => true]]]], $props);
+    }
+
+    public function testDotKeyWithoutParentCreatesNestedArray(): void
+    {
+        [$props] = $this->resolve(['auth.user.name' => 'Tony']);
+
+        self::assertSame(['auth' => ['user' => ['name' => 'Tony']]], $props);
+    }
+
+    public function testNestedDotKeyIsNotUnpacked(): void
+    {
+        [$props] = $this->resolve(['auth' => ['user.can' => ['do.stuff' => true], 'user' => ['name' => 'Tony']]]);
+
+        self::assertSame(['auth' => ['user.can' => ['do.stuff' => true], 'user' => ['name' => 'Tony']]], $props);
+    }
+
+    public function testDotKeyMergesIntoParentClosureResult(): void
+    {
+        [$props] = $this->resolve([
+            'auth' => static fn () => ['user' => ['name' => 'Tony']],
+            'auth.user.permissions' => static fn () => ['edit-posts'],
+        ]);
+
+        self::assertSame(['auth' => ['user' => ['name' => 'Tony', 'permissions' => ['edit-posts']]]], $props);
+    }
+
+    public function testDotKeyOverwritesParentPropObject(): void
+    {
+        [$props] = $this->resolve([
+            'auth' => new AlwaysProp(static fn () => ['user' => ['name' => 'Tony']]),
+            'auth.user.permissions' => ['edit-posts'],
+        ]);
+
+        self::assertSame(['auth' => ['user' => ['permissions' => ['edit-posts']]]], $props);
+    }
+
+    public function testDotKeyOptionalPropIsSkippedOnFullRender(): void
+    {
+        [$props] = $this->resolve([
+            'auth' => ['user' => ['name' => 'Tony']],
+            'auth.user.permissions' => new OptionalProp(static fn () => ['edit-posts']),
+        ]);
+
+        self::assertSame(['auth' => ['user' => ['name' => 'Tony']]], $props);
+    }
+
+    public function testDotKeyOptionalPropIsResolvedWhenRequestedByPath(): void
+    {
+        [$props] = $this->resolve(
+            [
+                'auth' => ['user' => ['name' => 'Tony']],
+                'auth.user.permissions' => new OptionalProp(static fn () => ['edit-posts']),
+            ],
+            $this->partial(only: 'auth.user.permissions'),
+        );
+
+        self::assertSame(['auth' => ['user' => ['permissions' => ['edit-posts']]]], $props);
+    }
+
+    public function testDotKeyClosureIsNotCalledWhenNotRequested(): void
+    {
+        $called = false;
+        [$props] = $this->resolve(
+            [
+                'auth.user.permissions' => static function () use (&$called): array {
+                    $called = true;
+
+                    return ['edit-posts'];
+                },
+                'title' => 'Hello',
+            ],
+            $this->partial(only: 'title'),
+        );
+
+        self::assertFalse($called);
+        self::assertSame(['title' => 'Hello'], $props);
+    }
+
     public function testNestedClosureIsCalledExactlyOnce(): void
     {
         $callCount = 0;
