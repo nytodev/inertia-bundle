@@ -74,7 +74,7 @@ final class PropsResolver
      */
     public function resolve(array $props): array
     {
-        return $this->resolveLevel($props, '', false);
+        return $this->resolveLevel($this->unpackDotProps($props), '', false);
     }
 
     /**
@@ -168,9 +168,64 @@ final class PropsResolver
     }
 
     /**
+     * Nests top-level keys such as `auth.user.permissions` (inertia-laravel unpackDotProps). A closure on an
+     * intermediate segment is called so the value can be nested into its result; the leaf is left unresolved
+     * so that partial filtering still applies to it.
+     *
+     * @param array<array-key, mixed> $props
+     *
+     * @return array<array-key, mixed>
+     */
+    private function unpackDotProps(array $props): array
+    {
+        foreach ($props as $key => $value) {
+            if (!\is_string($key) || !str_contains($key, '.')) {
+                continue;
+            }
+
+            unset($props[$key]);
+            $segments = explode('.', $key);
+            $leaf = array_pop($segments);
+            $current = &$props;
+
+            foreach ($segments as $segment) {
+                if (($current[$segment] ?? null) instanceof \Closure) {
+                    $current[$segment] = $current[$segment]();
+                }
+                if (!\is_array($current[$segment] ?? null)) {
+                    $current[$segment] = [];
+                }
+                $current = &$current[$segment];
+            }
+
+            $current[$leaf] = $value;
+            unset($current);
+        }
+
+        return $props;
+    }
+
+    /**
      * @return array{0: bool, 1: mixed}
      */
     private function resolveEntry(mixed $prop, string $path): array
+    {
+        [$isIncluded, $value] = $this->resolvePropValue($prop, $path);
+
+        // A closure or prop object may return another prop object, which must go through its own rules and metadata.
+        if ($isIncluded && $value !== $prop && $this->isPropType($value)) {
+            $this->collectOnceMetadata($value, $path);
+
+            return $this->resolveEntry($value, $path);
+        }
+
+        return [$isIncluded, $value];
+    }
+
+    /**
+     * @return array{0: bool, 1: mixed}
+     */
+    private function resolvePropValue(mixed $prop, string $path): array
     {
         if ($prop instanceof DeferProp) {
             if (!$this->isPartial) {
@@ -233,15 +288,7 @@ final class PropsResolver
         }
 
         if ($prop instanceof \Closure) {
-            $value = $prop();
-
-            if ($this->isPropType($value)) {
-                $this->collectOnceMetadata($value, $path);
-
-                return $this->resolveEntry($value, $path);
-            }
-
-            return [true, $value];
+            return [true, $prop()];
         }
 
         return [true, $prop];

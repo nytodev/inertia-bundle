@@ -282,7 +282,6 @@ docs(readme): add Flex installation instructions
 | `handleExceptionsUsing()` | Applies to first visits (HTML) too | ❌ XHR only |
 | `X-Inertia-Version` header on version-mismatch 409 | Since 3.1.1 | ❌ |
 | `defer(rescue: true)` + `rescuedProps` | Since 3.1.0 | ❌ |
-| Dot-notation prop keys (`share('auth.user', …)`) | Unpacked into nested arrays | ❌ |
 
 ---
 

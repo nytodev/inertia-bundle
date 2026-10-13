@@ -14,6 +14,8 @@ CHANGELOG
  * Fixed `once()->fresh()` having no effect: the prop is now resolved even when the client already has it. The non-standard `fresh: true` entry is no longer emitted in `onceProps`
  * Fixed `defer()->once()` props the client already has being listed in `deferredProps`, which triggered a useless deferred request
  * Fixed docs and README still documenting the removed `lazy()` method (use `optional()`)
+ * Added dot-notation prop keys: `share('auth.user', ...)` or `render(..., ['auth.user.role' => ...])` are nested into the props tree (inertia-laravel `unpackDotProps`), and `sharedProps` lists their first segment (`["auth"]`) — previously the flat key was sent as is
+ * Fixed a prop type returning another prop type (e.g. `always(fn () => merge(...))`) being serialized as `{}`: the inner prop is now resolved with its own rules and metadata
 
 3.1.1
 -----

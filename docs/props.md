@@ -176,3 +176,18 @@ return $inertia->render('Feed/Index', [
 Partial reloads accept dot paths: `router.reload({ only: ['auth.user'] })` returns only `auth.user` (the client merges it into the existing `auth` object), and `except: ['auth.permissions']` drops only that branch. Requesting a parent (`only: ['auth']`) includes its nested optional props. Everything inside a value returned by a closure is sent as a whole.
 
 A closure is only called when the request needs it: on a partial reload, closures that are not requested — or are listed in `except` — never run.
+
+A prop type may also return another prop type, e.g. `$inertia->always(fn () => $inertia->merge(...))`: the inner one is applied with its own rules and metadata.
+
+### Dot-notation keys
+
+A top-level key containing dots is nested into the props tree, so several places can contribute to the same object:
+
+```php
+$inertia->share('auth.user', fn () => $this->security->getUser()?->toArray());
+$inertia->share('auth.permissions', $inertia->optional(fn () => $this->permissions->forCurrentUser()));
+
+return $inertia->render('Users/Edit', ['auth.user.role' => 'admin']); // props.auth.user.role
+```
+
+`sharedProps` lists the first segment only (`["auth"]`). The value at the end of the path stays lazy and is filtered by its full path (`only: ['auth.permissions']`). A closure found on an intermediate segment (`auth.user` above) is called so the value can be nested into its result, and an intermediate prop type or scalar is replaced by an array, as in inertia-laravel. Only top-level keys are unpacked: a dotted key inside a nested array is kept as is.
