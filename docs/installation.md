@@ -62,7 +62,16 @@ inertia:
     ssr_ensure_bundle_exists: true   # set to false when the SSR server runs in another container
     ssr_timeout: null  # seconds; null = PHP default_socket_timeout
     ssr_throw_on_error: false
+
+    # Throw an InvalidArgumentException from render() when the page component file
+    # is missing. Paths must be absolute: use %kernel.project_dir%.
+    pages:
+        ensure_pages_exist: false
+        paths: []   # e.g. ['%kernel.project_dir%/assets/pages']
+        extensions: ['vue', 'jsx', 'tsx', 'js', 'ts', 'svelte']
 ```
+
+The same check is available in tests with `AssertableInertiaPage::configure()` (see [Testing](testing.md#component-file-check)). The former `testing.ensure_pages_exist` option is deprecated and has no effect.
 
 ## Root Twig template
 

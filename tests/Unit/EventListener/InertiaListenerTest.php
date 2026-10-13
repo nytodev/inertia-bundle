@@ -84,8 +84,9 @@ final class InertiaListenerTest extends TestCase
 
         $this->listener->onKernelRequest($event);
 
-        self::assertTrue($event->hasResponse());
-        self::assertSame(409, $event->getResponse()->getStatusCode());
+        $response = $event->getResponse();
+        self::assertNotNull($response);
+        self::assertSame(409, $response->getStatusCode());
     }
 
     public function testOnKernelRequestOn409SetsXInertiaLocationHeader(): void
@@ -97,8 +98,9 @@ final class InertiaListenerTest extends TestCase
 
         $this->listener->onKernelRequest($event);
 
-        self::assertTrue($event->hasResponse());
-        self::assertNotEmpty($event->getResponse()->headers->get('X-Inertia-Location'));
+        $response = $event->getResponse();
+        self::assertNotNull($response);
+        self::assertNotEmpty($response->headers->get('X-Inertia-Location'));
     }
 
     public function testOnKernelRequestWithVersionMismatchOnlyOnGetMethod(): void
