@@ -73,9 +73,14 @@ final class InertiaBundle extends AbstractBundle
                 ->arg('$httpClient', service('http_client'))
                 ->arg('$ssrUrl', $config['ssr_url'])
                 ->arg('$dispatcher', service('event_dispatcher'))
-                ->arg('$bundleDetector', service('inertia.ssr_bundle_detector'))
                 ->arg('$throwOnError', $config['ssr_throw_on_error'])
-                ->arg('$requestStack', service('request_stack'));
+                ->arg('$requestStack', service('request_stack'))
+                ->arg('$timeout', $config['ssr_timeout']);
+
+            if ($config['ssr_ensure_bundle_exists']) {
+                $services->get('inertia.ssr_gateway')
+                    ->arg('$bundleDetector', service('inertia.ssr_bundle_detector'));
+            }
 
             // stop-ssr and check-ssr need symfony/http-client — only wire when SSR is enabled.
             $services->get('inertia.command.stop_ssr')

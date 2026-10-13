@@ -153,6 +153,8 @@ inertia:
     ssr_enabled: true
     ssr_url:    'http://127.0.0.1:13714'   # default — keep if using a local Node.js process
     ssr_bundle: null                        # null = auto-detect (see below)
+    ssr_ensure_bundle_exists: true          # skip SSR when the bundle file is missing (see below)
+    ssr_timeout: null                       # seconds; null = PHP default_socket_timeout (60s)
 ```
 
 **Auto-detection order** (when `ssr_bundle` is `null`):
@@ -163,12 +165,27 @@ inertia:
 | 2 | `public/build/ssr/ssr.mjs` |
 | 3 | `public/build/ssr/ssr.js` |
 
-Set `ssr_bundle` explicitly if your output path differs:
+Set `ssr_bundle` explicitly if your output path differs. A relative path is resolved against the
+project root (`%kernel.project_dir%`), whatever the working directory of the PHP process:
 
 ```yaml
 inertia:
     ssr_bundle: 'public/build/ssr/ssr.js'
 ```
+
+**SSR server on another host or container.** Before each render, the bundle skips SSR when the
+bundle file cannot be found, so that a missing build falls back to client-side rendering. When the
+Node.js server runs elsewhere and the file is not present next to PHP, disable that check:
+
+```yaml
+inertia:
+    ssr_url: 'http://ssr:13714'
+    ssr_ensure_bundle_exists: false
+```
+
+**Timeout.** Set `ssr_timeout` (in seconds) so that a stuck SSR server does not hold every first
+visit for the 60s of PHP `default_socket_timeout`. It bounds the whole request; on timeout the
+page falls back to client-side rendering and `SsrRenderFailed` is dispatched.
 
 ---
 
@@ -337,6 +354,14 @@ systemctl restart inertia-ssr
 
 The bundle was not built or is not at a detected path. Either build it first (`npm run build`) or
 set `ssr_bundle` explicitly in `config/packages/inertia.yaml`.
+
+**Pages are rendered client-side although SSR is enabled**
+
+Without `ssr_throw_on_error`, any SSR failure silently falls back to client-side rendering. Listen
+to `Nytodev\InertiaBundle\Ssr\SsrRenderFailed` (or enable `ssr_throw_on_error` in dev) to see the
+cause: server unreachable, timeout, or a response that is not `{"head": string[], "body": string}`.
+If no event is dispatched, the bundle file was not found (or the path is excluded with `except()`) — check `ssr_bundle`, or set
+`ssr_ensure_bundle_exists: false` when the SSR server runs in another container.
 
 **SSR server not starting**
 

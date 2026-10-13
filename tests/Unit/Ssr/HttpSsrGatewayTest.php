@@ -10,6 +10,7 @@ use Nytodev\InertiaBundle\Ssr\SsrErrorType;
 use Nytodev\InertiaBundle\Ssr\SsrException;
 use Nytodev\InertiaBundle\Ssr\SsrRenderFailed;
 use Nytodev\InertiaBundle\Ssr\SsrResponse;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -94,6 +95,99 @@ final class HttpSsrGatewayTest extends TestCase
         $result = $gateway->dispatch($this->page);
 
         self::assertNull($result);
+    }
+
+    public function testDispatchEmptyObjectResponseDispatchesFailureAndReturnsNull(): void
+    {
+        $dispatcher = new EventDispatcher();
+        $captured = null;
+        $dispatcher->addListener(SsrRenderFailed::class, static function (SsrRenderFailed $e) use (&$captured): void {
+            $captured = $e;
+        });
+        $gateway = new HttpSsrGateway(new MockHttpClient(new MockResponse('{}')), 'http://127.0.0.1:13714', dispatcher: $dispatcher);
+
+        self::assertNull($gateway->dispatch($this->page));
+        self::assertInstanceOf(SsrRenderFailed::class, $captured);
+        self::assertStringContainsString('Invalid SSR response', $captured->error);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function invalidResponseShapeProvider(): iterable
+    {
+        yield 'body is not a string' => [(string) json_encode(['head' => [], 'body' => ['<div>']])];
+        yield 'head is not an array' => [(string) json_encode(['head' => '<title>Home</title>', 'body' => '<div></div>'])];
+        yield 'head contains a non-string' => [(string) json_encode(['head' => [42], 'body' => '<div></div>'])];
+    }
+
+    #[DataProvider('invalidResponseShapeProvider')]
+    public function testDispatchInvalidResponseShapeThrowsWhenThrowOnErrorEnabled(string $responseBody): void
+    {
+        $gateway = new HttpSsrGateway(new MockHttpClient(new MockResponse($responseBody)), 'http://127.0.0.1:13714', throwOnError: true);
+
+        $this->expectException(SsrException::class);
+        $this->expectExceptionMessage('Invalid SSR response');
+
+        $gateway->dispatch($this->page);
+    }
+
+    public function testDispatchMissingHeadDefaultsToEmptyString(): void
+    {
+        $gateway = new HttpSsrGateway(new MockHttpClient(new MockResponse('{"body": "<div id=\"app\"></div>"}')), 'http://127.0.0.1:13714');
+
+        $result = $gateway->dispatch($this->page);
+
+        self::assertNotNull($result);
+        self::assertSame('', $result->head);
+        self::assertSame('<div id="app"></div>', $result->body);
+    }
+
+    public function testDispatchPassesTimeoutAsTimeoutAndMaxDuration(): void
+    {
+        $options = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $requestOptions) use (&$options): MockResponse {
+            $options = $requestOptions;
+
+            return new MockResponse('{"head": [], "body": "<div></div>"}');
+        });
+        $gateway = new HttpSsrGateway($client, 'http://127.0.0.1:13714', timeout: 2.5);
+
+        $gateway->dispatch($this->page);
+
+        self::assertSame(2.5, $options['timeout']);
+        self::assertSame(2.5, $options['max_duration']);
+    }
+
+    public function testDispatchWithoutTimeoutKeepsClientDefaults(): void
+    {
+        $options = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $requestOptions) use (&$options): MockResponse {
+            $options = $requestOptions;
+
+            return new MockResponse('{"head": [], "body": "<div></div>"}');
+        });
+        $gateway = new HttpSsrGateway($client, 'http://127.0.0.1:13714');
+
+        $gateway->dispatch($this->page);
+
+        self::assertSame((float) \ini_get('default_socket_timeout'), $options['timeout']);
+        self::assertSame(0.0, (float) $options['max_duration']);
+    }
+
+    public function testIsHealthyPassesTimeout(): void
+    {
+        $options = [];
+        $client = new MockHttpClient(static function (string $method, string $url, array $requestOptions) use (&$options): MockResponse {
+            $options = $requestOptions;
+
+            return new MockResponse('', ['http_code' => 200]);
+        });
+        $gateway = new HttpSsrGateway($client, 'http://127.0.0.1:13714', timeout: 1.0);
+
+        self::assertTrue($gateway->isHealthy());
+        self::assertSame(1.0, $options['timeout']);
+        self::assertSame(1.0, $options['max_duration']);
     }
 
     public function testDispatchPostsToRenderEndpoint(): void

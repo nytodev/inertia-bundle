@@ -17,10 +17,16 @@ final class BundleDetector implements BundleDetectorInterface
         'public/build/ssr/ssr.js',
     ];
 
+    private readonly ?string $ssrBundle;
+
     public function __construct(
-        private readonly ?string $ssrBundle,
+        ?string $ssrBundle,
         private readonly string $projectDir,
     ) {
+        // Resolved against the project root: the working directory is public/ under PHP-FPM.
+        $this->ssrBundle = null === $ssrBundle || $this->isAbsolutePath($ssrBundle)
+            ? $ssrBundle
+            : $projectDir.\DIRECTORY_SEPARATOR.$ssrBundle;
     }
 
     public function detect(): ?string
@@ -37,5 +43,12 @@ final class BundleDetector implements BundleDetectorInterface
         }
 
         return null;
+    }
+
+    private function isAbsolutePath(string $path): bool
+    {
+        return str_starts_with($path, '/')
+            || str_starts_with($path, '\\')
+            || 1 === preg_match('#^[a-zA-Z]:[/\\\\]#', $path);
     }
 }

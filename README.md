@@ -185,7 +185,9 @@ inertia:
     expose_shared_prop_keys: true # Expose shared prop keys as top-level `sharedProps` in page object
     ssr_enabled: false            # Enable SSR (requires symfony/http-client)
     ssr_url: 'http://127.0.0.1:13714'
-    ssr_bundle: null              # Path to SSR JS bundle, auto-detected if null
+    ssr_bundle: null              # Path to SSR JS bundle (relative to the project root), auto-detected if null
+    ssr_ensure_bundle_exists: true # Skip SSR when the bundle file is missing (false if SSR runs in another container)
+    ssr_timeout: null             # SSR request timeout in seconds (null = PHP default_socket_timeout)
 ```
 
 ---
