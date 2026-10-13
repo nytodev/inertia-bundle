@@ -9,3 +9,8 @@ parameters:
         # DefinitionConfigurator became @template-annotated at different Symfony patch versions.
         # The generic parameter adds no runtime value here — suppress across all supported Symfony versions.
         - '#Method Nytodev\\InertiaBundle\\InertiaBundle::configure\(\) has parameter \$definition with generic class .* but does not specify its types#'
+        # Public trait for application tests: nothing in src/ uses it. Its body is analysed through
+        # FunctionalTestCase and InertiaAssertionsTest when tests/ is analysed.
+        -
+            identifier: trait.unused
+            path: src/Testing/InertiaAssertions.php
