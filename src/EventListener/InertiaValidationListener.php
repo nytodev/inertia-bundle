@@ -118,9 +118,18 @@ final class InertiaValidationListener
         $errors = [];
 
         foreach ($violations as $violation) {
-            $errors[$violation->getPropertyPath()] ??= (string) $violation->getMessage();
+            $errors[$this->toDotPath($violation->getPropertyPath())] ??= (string) $violation->getMessage();
         }
 
         return $errors;
+    }
+
+    /**
+     * The Inertia client keys nested field errors in dot notation (`form.errors['items.0.name']`),
+     * Symfony property paths use brackets (`items[0].name`, `[tags][1]`).
+     */
+    private function toDotPath(string $propertyPath): string
+    {
+        return ltrim((string) preg_replace('/\[([^\]]*)\]/', '.$1', $propertyPath), '.');
     }
 }

@@ -12,8 +12,12 @@ use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Response\InertiaResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\Flash\FlashBagInterface;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -199,10 +203,9 @@ final class Inertia implements ResetInterface
      */
     public function flash(string $key, mixed $value): void
     {
-        $request = $this->requestStack->getCurrentRequest();
+        $session = $this->session($this->requestStack->getCurrentRequest());
 
-        if (null !== $request && $request->hasSession()) {
-            $session = $request->getSession();
+        if (null !== $session) {
             /** @var array<string, mixed> $existing */
             $existing = $session->get('_inertia_flash', []);
             $existing[$key] = $value;
@@ -220,10 +223,10 @@ final class Inertia implements ResetInterface
      */
     public function reset(): void
     {
-        $request = $this->requestStack->getCurrentRequest();
-        if (null !== $request && $request->hasSession()) {
-            $request->getSession()->remove('inertia.clear_history');
-            $request->getSession()->remove('inertia.preserve_fragment');
+        $session = $this->session($this->requestStack->getCurrentRequest());
+        if (null !== $session) {
+            $session->remove('inertia.clear_history');
+            $session->remove('inertia.preserve_fragment');
         }
 
         $this->sharedProps = [];
@@ -241,13 +244,13 @@ final class Inertia implements ResetInterface
      *
      * @return array<string, mixed>
      */
-    private function consumeFlash(\Symfony\Component\HttpFoundation\Request $request): array
+    private function consumeFlash(Request $request): array
     {
         $flash = $this->flashData;
         $this->flashData = [];
 
-        if ($request->hasSession()) {
-            $session = $request->getSession();
+        $session = $this->session($request);
+        if (null !== $session) {
             /** @var array<string, mixed> $sessionFlash */
             $sessionFlash = $session->get('_inertia_flash', []);
             $session->remove('_inertia_flash');
@@ -271,10 +274,9 @@ final class Inertia implements ResetInterface
      */
     public function errors(array $errors, string $bag = 'default'): void
     {
-        $request = $this->requestStack->getCurrentRequest();
+        $session = $this->session($this->requestStack->getCurrentRequest());
 
-        if (null !== $request && $request->hasSession()) {
-            $session = $request->getSession();
+        if (null !== $session) {
             /** @var array<string, array<string, mixed>> $existing */
             $existing = $session->get('_inertia_errors', []);
             $existing[$bag] = array_merge($existing[$bag] ?? [], $errors);
@@ -287,49 +289,72 @@ final class Inertia implements ResetInterface
     }
 
     /**
-     * Read and clear all pending errors (session + in-memory fallback).
-     * Applies X-Inertia-Error-Bag header logic (identical to Laravel resolveValidationErrors()):
-     * - Only 'default' bag + header present → wrap under header value
-     * - Only 'default' bag + no header → return flat array
-     * - Multiple bags → return keyed by bag name.
+     * Read and clear all pending errors (session, FlashBag 'errors' and in-memory fallback).
+     * Same shape as inertia-laravel resolveValidationErrors(), which the client relies on:
+     * - 'default' bag present → only that bag, wrapped under X-Inertia-Error-Bag when sent
+     * - no 'default' bag → every bag keyed by name.
      *
      * Called exactly once per render() invocation.
      *
      * @return array<string, mixed>
      */
-    private function consumeErrors(\Symfony\Component\HttpFoundation\Request $request): array
+    private function consumeErrors(Request $request): array
     {
         /** @var array<string, array<string, mixed>> $bags */
         $bags = $this->errorsData;
         $this->errorsData = [];
 
-        if ($request->hasSession()) {
-            $session = $request->getSession();
+        $session = $this->session($request);
+        if (null !== $session) {
             /** @var array<string, array<string, mixed>> $sessionErrors */
             $sessionErrors = $session->get('_inertia_errors', []);
             $session->remove('_inertia_errors');
             foreach ($sessionErrors as $bagName => $bagErrors) {
                 $bags[$bagName] = array_merge($bags[$bagName] ?? [], $bagErrors);
             }
-        }
 
-        if ([] === $bags) {
-            return [];
-        }
-
-        $bagNames = array_keys($bags);
-        $isOnlyDefault = ['default'] === $bagNames;
-
-        if ($isOnlyDefault) {
-            $errorBagHeader = $request->headers->get('X-Inertia-Error-Bag');
-            if (null !== $errorBagHeader && '' !== $errorBagHeader) {
-                return [$errorBagHeader => $bags['default']];
+            $flashBagErrors = $session instanceof FlashBagAwareSessionInterface ? $this->pullFlashBagErrors($session->getFlashBag()) : [];
+            if ([] !== $flashBagErrors) {
+                $bags['default'] = array_merge($bags['default'] ?? [], $flashBagErrors);
             }
-
-            return $bags['default'];
         }
 
-        return $bags;
+        if (!\array_key_exists('default', $bags)) {
+            return $bags;
+        }
+
+        $errorBagHeader = $request->headers->get('X-Inertia-Error-Bag');
+        if (null !== $errorBagHeader && '' !== $errorBagHeader) {
+            return [$errorBagHeader => $bags['default']];
+        }
+
+        return $bags['default'];
+    }
+
+    /**
+     * Array entries flashed under 'errors' (addFlash('errors', ['email' => '…'])) are field errors;
+     * string entries are plain messages and stay in the FlashBag for Twig templates.
+     *
+     * @return array<string, mixed>
+     */
+    private function pullFlashBagErrors(FlashBagInterface $flashBag): array
+    {
+        $errors = [];
+        $messages = [];
+
+        foreach ($flashBag->get('errors') as $entry) {
+            if (\is_array($entry)) {
+                $errors = array_merge($errors, $entry);
+            } else {
+                $messages[] = $entry;
+            }
+        }
+
+        if ([] !== $messages) {
+            $flashBag->set('errors', $messages);
+        }
+
+        return $errors;
     }
 
     /**
@@ -339,9 +364,9 @@ final class Inertia implements ResetInterface
      */
     public function clearHistory(): void
     {
-        $request = $this->requestStack->getCurrentRequest();
-        if (null !== $request && $request->hasSession()) {
-            $request->getSession()->set('inertia.clear_history', true);
+        $session = $this->session($this->requestStack->getCurrentRequest());
+        if (null !== $session) {
+            $session->set('inertia.clear_history', true);
 
             return;
         }
@@ -353,10 +378,10 @@ final class Inertia implements ResetInterface
      * Read and clear the clearHistory flag from the session (or in-memory fallback).
      * Called exactly once per render() invocation.
      */
-    private function consumeClearHistory(\Symfony\Component\HttpFoundation\Request $request): bool
+    private function consumeClearHistory(Request $request): bool
     {
-        if ($request->hasSession()) {
-            $session = $request->getSession();
+        $session = $this->session($request);
+        if (null !== $session) {
             $value = (bool) $session->get('inertia.clear_history', false);
             $session->remove('inertia.clear_history');
 
@@ -386,9 +411,9 @@ final class Inertia implements ResetInterface
      */
     public function preserveFragment(): void
     {
-        $request = $this->requestStack->getCurrentRequest();
-        if (null !== $request && $request->hasSession()) {
-            $request->getSession()->set('inertia.preserve_fragment', true);
+        $session = $this->session($this->requestStack->getCurrentRequest());
+        if (null !== $session) {
+            $session->set('inertia.preserve_fragment', true);
 
             return;
         }
@@ -400,10 +425,10 @@ final class Inertia implements ResetInterface
      * Read and clear the preserveFragment flag from the session (or in-memory fallback).
      * Called exactly once per render() invocation.
      */
-    private function consumePreserveFragment(\Symfony\Component\HttpFoundation\Request $request): bool
+    private function consumePreserveFragment(Request $request): bool
     {
-        if ($request->hasSession()) {
-            $session = $request->getSession();
+        $session = $this->session($request);
+        if (null !== $session) {
             $value = (bool) $session->get('inertia.preserve_fragment', false);
             $session->remove('inertia.preserve_fragment');
 
@@ -474,6 +499,19 @@ final class Inertia implements ResetInterface
         }
 
         return new RedirectResponse($url, 302);
+    }
+
+    /**
+     * Session holding the Inertia state, or null when it must not be touched: none configured,
+     * or a `_stateless` route, where any read throws UnexpectedSessionUsageException in debug.
+     */
+    private function session(?Request $request): ?SessionInterface
+    {
+        if (null === $request || !$request->hasSession() || $request->attributes->getBoolean('_stateless')) {
+            return null;
+        }
+
+        return $request->getSession();
     }
 
     /**

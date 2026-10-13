@@ -285,35 +285,21 @@ final class InertiaListenerTest extends TestCase
         self::assertSame(409, $event->getResponse()->getStatusCode());
     }
 
-    public function testOnKernelRequestAutoInjectsFlashBagErrorsWhenVersionMatches(): void
+    public function testOnKernelRequestOn409OnStatelessRouteDoesNotTouchTheSession(): void
     {
-        // Build a listener with NO version so the version check never triggers a 409.
-        $requestStack = $this->createMock(RequestStack::class);
-        $twig = new Environment(new ArrayLoader([]));
-        $inertiaResponse = new InertiaResponse($twig, 'base.html.twig');
-        $inertia = new Inertia($requestStack, $inertiaResponse, null);
-        $listener = new InertiaListener($inertia);
+        $session = $this->createMock(SessionInterface::class);
+        $session->expects(self::never())->method(self::anything());
 
-        // Request with X-Inertia header and a FlashBag containing 'errors' as an array.
-        $request = Request::create('/test');
+        $request = Request::create('http://example.com/page');
         $request->headers->set('X-Inertia', 'true');
-        $session = new Session(new MockArraySessionStorage());
-        $session->getFlashBag()->add('errors', ['email' => 'Invalid']);
+        $request->headers->set('X-Inertia-Version', 'old-version');
+        $request->attributes->set('_stateless', true);
         $request->setSession($session);
 
         $event = new RequestEvent($this->makeKernel(), $request, HttpKernelInterface::MAIN_REQUEST);
-        $listener->onKernelRequest($event);
+        $this->listener->onKernelRequest($event);
 
-        // No 409 should have been set — version is null so no mismatch.
-        self::assertFalse($event->hasResponse());
-
-        // Verify errors were injected: render with a fresh request and check the page object.
-        $renderRequest = Request::create('/test');
-        $renderRequest->headers->set('X-Inertia', 'true');
-        $requestStack->method('getCurrentRequest')->willReturn($renderRequest);
-        $response = $inertia->render('Home', []);
-        $data = json_decode((string) $response->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame(['email' => 'Invalid'], $data['props']['errors']);
+        self::assertNotNull($event->getResponse());
+        self::assertSame(409, $event->getResponse()->getStatusCode());
     }
 }

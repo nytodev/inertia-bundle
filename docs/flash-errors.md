@@ -2,7 +2,7 @@
 
 ## Flash messages
 
-Flash a value into `page.props.flash` for the next Inertia render. The value survives redirects (POST → 303 → GET) via the session and is consumed automatically — it will not appear on subsequent renders.
+Flash a value into `page.flash` for the next Inertia render. The value survives redirects (POST → 303 → GET) via the session and is consumed automatically — it will not appear on subsequent renders.
 
 ```php
 #[Route('/profile', methods: ['POST'])]
@@ -15,7 +15,7 @@ public function update(Request $request, Inertia $inertia): Response
 }
 ```
 
-On the next `GET /profile` render, `page.props.flash` will contain:
+On the next `GET /profile` render, `page.flash` will contain:
 
 ```json
 { "success": "Profile updated successfully." }
@@ -28,7 +28,9 @@ $inertia->flash('success', 'Saved.');
 $inertia->flash('count', 3);
 ```
 
-> When no session is available (stateless routes), flash data is kept in memory and only available within the same request lifecycle.
+> Flash data stays in the session until the next Inertia render consumes it — a redirect to a non-Inertia response (file download, JSON) does not drop it.
+>
+> When no session is available, or on `_stateless` routes (the session is never touched there), flash data is kept in memory and only available within the same request lifecycle. The same applies to errors, `clearHistory()` and `preserveFragment()`.
 
 ---
 
@@ -57,13 +59,21 @@ On the next `GET /register`, `page.props.errors` will contain:
 { "email": "This email is already taken.", "password": "Too short." }
 ```
 
+Field errors flashed with Symfony's FlashBag are picked up too, on the next render (first visit or XHR):
+
+```php
+$this->addFlash('errors', ['email' => 'This email is already taken.']);
+```
+
+Only array entries are treated as field errors; string entries flashed under `errors` stay in the FlashBag for Twig templates.
+
 ### Automatic interception of MapRequestPayload / MapQueryString
 
 > Requires `symfony/validator`.
 
 When a controller argument mapped with `#[MapRequestPayload]` or `#[MapQueryString]` fails validation, Symfony throws an `HttpException` wrapping a `ValidationFailedException` (422 for `MapRequestPayload`, 404 for `MapQueryString`) — before the controller runs. On Inertia requests (`X-Inertia` header present), the bundle intercepts it automatically:
 
-1. Each violation is converted to one message per field (first message wins, like Laravel).
+1. Each violation is converted to one message per field (first message wins, like Laravel). Nested property paths use the dot notation the Inertia client expects: `items[0].name` becomes `items.0.name` (`form.errors['items.0.name']`).
 2. The errors are stored in the session.
 3. A `303 See Other` redirect is returned to the `Referer` — only same-host URLs and relative paths are honored (open-redirect protection); anything else falls back to the current URL.
 4. The next render injects them as `page.props.errors`.
@@ -104,6 +114,14 @@ Props will be:
         "profileForm": { "name": "Required." }
     }
 }
+```
+
+When the `default` bag also has errors, only the `default` bag is sent (same as inertia-laravel) — the client reads either the flat object or `errors[errorBag]`, never a mix:
+
+```php
+$inertia->errors(['email' => 'Invalid.']);             // default bag
+$inertia->errors(['name' => 'Required.'], 'profileForm');
+// → { "errors": { "email": "Invalid." } }
 ```
 
 ### X-Inertia-Error-Bag header

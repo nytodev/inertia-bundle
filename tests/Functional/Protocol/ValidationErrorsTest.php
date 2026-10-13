@@ -98,6 +98,49 @@ final class ValidationErrorsTest extends FunctionalTestCase
     }
 
     // -------------------------------------------------------------------------
+    // default bag + named bag: only default is sent, like inertia-laravel —
+    // the client reads errors[errorBag] or the flat object, never bag names
+    // -------------------------------------------------------------------------
+
+    public function testMixedBagsWithoutHeaderSendsOnlyDefaultBagFlat(): void
+    {
+        $this->client->request('GET', '/test/validation-errors-mixed-bags', [], [], ['HTTP_X_INERTIA' => 'true']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['email' => 'Invalid email'], $this->decodeJsonResponse()['props']['errors']);
+    }
+
+    public function testMixedBagsWithErrorBagHeaderWrapsOnlyDefaultBag(): void
+    {
+        $this->client->request('GET', '/test/validation-errors-mixed-bags', [], [], [
+            'HTTP_X_INERTIA' => 'true',
+            'HTTP_X_INERTIA_ERROR_BAG' => 'registration',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['registration' => ['email' => 'Invalid email']], $this->decodeJsonResponse()['props']['errors']);
+    }
+
+    // -------------------------------------------------------------------------
+    // FlashBag 'errors' reach the next render, whether it is a first visit or XHR
+    // -------------------------------------------------------------------------
+
+    public function testFlashBagErrorsAppearOnFirstVisitAfterClassicFormPost(): void
+    {
+        $this->client->followRedirects(false);
+        $this->client->request('POST', '/test/flash-bag-errors-redirect');
+        $this->client->followRedirect();
+
+        self::assertResponseIsSuccessful();
+        $this->assertInertia($this->client->getResponse(), static function (\Nytodev\InertiaBundle\Testing\AssertableInertiaPage $page): void {
+            $page->where('errors', ['email' => 'Invalid email']);
+        });
+
+        $this->client->request('GET', '/test/validation-errors-target', [], [], ['HTTP_X_INERTIA' => 'true']);
+        self::assertSame([], $this->decodeJsonResponse()['props']['errors']);
+    }
+
+    // -------------------------------------------------------------------------
     // explicit errors in render() props wins over auto-injection
     // -------------------------------------------------------------------------
 
