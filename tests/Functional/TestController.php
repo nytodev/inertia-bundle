@@ -14,6 +14,7 @@ use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -305,7 +306,12 @@ final class TestController
 
     public function flashBagErrorsRedirect(Request $request): Response
     {
-        $request->getSession()->getFlashBag()->add('errors', ['email' => 'Invalid email']);
+        $session = $request->getSession();
+        if (!$session instanceof FlashBagAwareSessionInterface) {
+            throw new \LogicException('The test kernel session must support flash messages.');
+        }
+
+        $session->getFlashBag()->add('errors', ['email' => 'Invalid email']);
 
         return new RedirectResponse('/test/validation-errors-target', 302);
     }
