@@ -219,6 +219,26 @@ final class MapRequestPayloadValidationTest extends FunctionalTestCase
         self::assertSame(['name' => 'Manual message.'], $errors);
     }
 
+    public function testNestedViolationPathsUseDotNotationExpectedByTheClient(): void
+    {
+        $this->client->request(
+            'POST',
+            '/test/throw-nested-validation-failed',
+            [],
+            [],
+            ['HTTP_REFERER' => 'http://localhost/test/map-request-payload'],
+        );
+
+        self::assertResponseStatusCodeSame(303);
+
+        $this->client->followRedirect();
+
+        self::assertSame(
+            ['items.0.name' => 'Item name required.', 'tags.1' => 'Tag required.'],
+            $this->decodeJsonResponse()['props']['errors'],
+        );
+    }
+
     // -------------------------------------------------------------------------
     // helpers
     // -------------------------------------------------------------------------
