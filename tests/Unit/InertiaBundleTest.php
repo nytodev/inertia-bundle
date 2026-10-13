@@ -45,10 +45,31 @@ final class InertiaBundleTest extends TestCase
         $this->ssrGateway(['ssr_enabled' => true, 'ssr_timeout' => 0]);
     }
 
+    public function testTestingOptionIsDeprecated(): void
+    {
+        $deprecations = $this->captureDeprecations(fn () => $this->loadExtension(['testing' => ['ensure_pages_exist' => false]]));
+
+        self::assertCount(1, $deprecations);
+        self::assertStringContainsString('Since nytodev/inertia-bundle 3.2: The "testing" option at path "inertia" has no effect', $deprecations[0]);
+    }
+
+    public function testDefaultConfigTriggersNoDeprecation(): void
+    {
+        self::assertSame([], $this->captureDeprecations(fn () => $this->loadExtension([])));
+    }
+
     /**
      * @param array<string, mixed> $config
      */
     private function ssrGateway(array $config): Definition
+    {
+        return $this->loadExtension($config)->getDefinition('inertia.ssr_gateway');
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function loadExtension(array $config): ContainerBuilder
     {
         $container = new ContainerBuilder();
         $container->setParameter('kernel.environment', 'test');
@@ -60,6 +81,27 @@ final class InertiaBundleTest extends TestCase
         self::assertNotNull($extension);
         $extension->load([$config], $container);
 
-        return $container->getDefinition('inertia.ssr_gateway');
+        return $container;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function captureDeprecations(callable $callback): array
+    {
+        $deprecations = [];
+        set_error_handler(static function (int $level, string $message) use (&$deprecations): bool {
+            $deprecations[] = $message;
+
+            return true;
+        }, \E_USER_DEPRECATED);
+
+        try {
+            $callback();
+        } finally {
+            restore_error_handler();
+        }
+
+        return $deprecations;
     }
 }

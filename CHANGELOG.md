@@ -24,6 +24,9 @@ CHANGELOG
  * Fixed an SSR server response that is not `{"head": string[], "body": string}` (e.g. `{}`) causing a 500 error: it now dispatches `SsrRenderFailed` (or throws with `ssr_throw_on_error`) and falls back to client-side rendering. A missing `head` is accepted
  * Added the `ssr_ensure_bundle_exists` option (default `true`): set it to `false` when the SSR server runs on another host or container and the bundle file is not available to PHP
  * Added the `ssr_timeout` option (seconds, default `null`) applied to SSR render and health check requests — previously PHP `default_socket_timeout` (60s) applied
+ * Added the `Testing\InertiaAssertions` trait providing `assertInertia(Response $response, ?callable $callback = null): AssertableInertiaPage` — the testing docs referenced a `FunctionalTestCase` class that is not shipped with the bundle
+ * Fixed `AssertableInertiaPage::where()` ignoring the value returned by a closure: a closure returning `false` now fails the assertion. Closures returning nothing keep working
+ * Deprecated the `testing.ensure_pages_exist` option, which never had any effect: use `AssertableInertiaPage::configure()` instead. It will be removed in 4.0
 
 3.1.1
 -----

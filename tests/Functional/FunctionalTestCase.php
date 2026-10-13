@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Nytodev\InertiaBundle\Tests\Functional;
 
-use Nytodev\InertiaBundle\Testing\AssertableInertiaPage;
+use Nytodev\InertiaBundle\Testing\InertiaAssertions;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Base class for functional tests.
@@ -16,6 +15,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 abstract class FunctionalTestCase extends WebTestCase
 {
+    use InertiaAssertions;
+
     /** @var list<callable> */
     private array $exceptionHandlersBefore = [];
 
@@ -33,18 +34,6 @@ abstract class FunctionalTestCase extends WebTestCase
             restore_exception_handler();
         }
         parent::tearDown();
-    }
-
-    /**
-     * Asserts that the response contains an Inertia page object matching the given callback.
-     *
-     * Works with both XHR (JSON) and HTML (first-visit) responses.
-     *
-     * @param callable(AssertableInertiaPage): void $callback
-     */
-    protected function assertInertia(Response $response, callable $callback): void
-    {
-        $callback(AssertableInertiaPage::fromResponse($response));
     }
 
     /**

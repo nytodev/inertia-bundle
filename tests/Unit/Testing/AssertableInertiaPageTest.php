@@ -205,6 +205,43 @@ final class AssertableInertiaPageTest extends TestCase
         self::assertSame(42, $received);
     }
 
+    public function testWhereWithClosureReturningFalseFails(): void
+    {
+        $page = $this->makePage(['component' => 'X', 'props' => ['count' => 42]]);
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('Inertia prop [count] was marked as invalid using a closure.');
+
+        $page->where('count', static fn (int $count): bool => $count > 100);
+    }
+
+    public function testWhereWithClosureReturningTruePasses(): void
+    {
+        $page = $this->makePage(['component' => 'X', 'props' => ['count' => 42]]);
+
+        $page->where('count', static fn (int $count): bool => $count > 10);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testWhereWithClosureReturningNonBoolIsIgnored(): void
+    {
+        $page = $this->makePage(['component' => 'X', 'props' => ['count' => 42]]);
+
+        $page->where('count', static fn (int $count): int => 0);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testWhereAllWithClosureReturningFalseFails(): void
+    {
+        $page = $this->makePage(['component' => 'X', 'props' => ['name' => 'John', 'count' => 42]]);
+
+        $this->expectException(AssertionFailedError::class);
+
+        $page->whereAll(['name' => 'John', 'count' => static fn (int $count): bool => 0 === $count]);
+    }
+
     public function testWhereWithDotNotationWorks(): void
     {
         $page = $this->makePage(['component' => 'X', 'props' => ['user' => ['age' => 30]]]);
