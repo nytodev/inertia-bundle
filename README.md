@@ -188,6 +188,10 @@ inertia:
     ssr_bundle: null              # Path to SSR JS bundle (relative to the project root), auto-detected if null
     ssr_ensure_bundle_exists: true # Skip SSR when the bundle file is missing (false if SSR runs in another container)
     ssr_timeout: null             # SSR request timeout in seconds (null = PHP default_socket_timeout)
+    ssr_throw_on_error: false     # Throw on SSR failure instead of falling back to client-side rendering
+    pages:
+        ensure_pages_exist: false # Throw from render() when the page component file is missing
+        paths: []                 # Absolute directories to scan, e.g. '%kernel.project_dir%/assets/pages'
 ```
 
 ---

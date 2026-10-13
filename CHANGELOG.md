@@ -4,6 +4,22 @@ CHANGELOG
 3.2.0
 -----
 
+**Behavior changes.** No public API was removed, but the following changes can alter what an application sends or what its tests assert. Check them before upgrading:
+
+ * Closures nested inside arrays (`'stats' => ['total' => fn () => ...]`) are now called; they were previously left uncalled and serialized as `{}`
+ * Top-level dot-notation keys (`share('auth.user', ...)`) are now nested into the props tree instead of being sent as a flat `"auth.user"` key, and `sharedProps` lists their first segment (`["auth"]`)
+ * `optional()` and `defer()` props are resolved on except-only partial reloads (`router.reload({ except: [...] })`) unless excluded, as in inertia-laravel
+ * `onceProps` entries no longer carry the non-standard `fresh: true` field
+ * Nested validation error keys are sent in dot notation: `items[0].name` becomes `items.0.name`
+ * When the `default` error bag exists, only it is sent (wrapped under `X-Inertia-Error-Bag` when present), instead of an object of all bags
+ * FlashBag `errors` are consumed at render time on every visit, first visits included, instead of on XHR visits only
+ * On `_stateless` routes, flash data, errors and history flags are kept in memory for the current request instead of the session
+ * A relative `ssr_bundle` is resolved against the project root instead of the working directory (no change when running from the project root)
+ * `AssertableInertiaPage::where()` fails when its closure returns `false`
+ * The internal `InertiaResponse::resolveProps()` method is removed (private service, replaced by `Response\PropsResolver`)
+
+**All changes:**
+
  * Added recursive props resolution: closures and prop objects (`optional()`, `defer()`, `merge()`, `once()`, `scroll()`, `always()`) nested inside arrays are now resolved instead of being serialized as `{}`; their metadata uses dot paths (e.g. `mergeProps: ["feed.posts"]`, `deferredProps: {"default": ["feed.comments"]}`)
  * Added dot-notation partial reloads: `X-Inertia-Partial-Data` / `X-Inertia-Partial-Except` accept paths such as `auth.user` (`router.reload({ only: ['auth.user'] })`)
  * Fixed plain closure props being evaluated on partial reloads even when not requested or explicitly excluded via `except` (#22)
@@ -70,7 +86,7 @@ CHANGELOG
  * Changed `Inertia::render()` now accepts a `BackedEnum` as component name
  * Added `AssertableInertiaPage::configure()` — define component paths and extensions to scan
  * Added component file existence assertion in `AssertableInertiaPage::component()`
- * Renamed `LazyProp` to `OptionalProp` — `lazy()` alias kept for backwards compatibility
+ * Renamed `LazyProp` to `OptionalProp` and `lazy()` to `optional()` — no alias is kept, `lazy()` no longer exists
  * Added `expose_shared_prop_keys` configuration option
  * Added optional Symfony Normalizer support — pass a `$serializationContext` array to `Inertia::render()` or `renderInertia()` to normalize PHP objects (e.g. Doctrine entities) in props via `NormalizerInterface`; requires `symfony/serializer`
 

@@ -110,8 +110,8 @@ final class InertiaExceptionListenerTest extends TestCase
         $event = $this->makeEvent(new \RuntimeException('Boom'), $request);
         $listener->onKernelException($event);
 
-        self::assertTrue($event->hasResponse());
         $response = $event->getResponse();
+        self::assertNotNull($response);
         self::assertSame(500, $response->getStatusCode());
     }
 
@@ -139,8 +139,8 @@ final class InertiaExceptionListenerTest extends TestCase
         $event = $this->makeEvent(new HttpException(404, 'Not Found'), $request);
         $listener->onKernelException($event);
 
-        self::assertTrue($event->hasResponse());
         $response = $event->getResponse();
+        self::assertNotNull($response);
         self::assertSame(404, $response->getStatusCode());
     }
 
