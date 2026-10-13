@@ -14,7 +14,6 @@ use Symfony\Component\HttpKernel\Event\ResponseEvent;
  * Handles two Inertia protocol concerns at the kernel level:
  *
  * kernel.request (priority 20):
- *   - FlashBag 'errors' → auto-injected as Inertia validation errors (all methods)
  *   - Asset version mismatch on GET → 409 Conflict + X-Inertia-Location header
  *   - Reflash session flash data before returning 409
  *
@@ -40,8 +39,6 @@ final class InertiaListener
             return;
         }
 
-        // Version mismatch check must run before consuming errors from the FlashBag,
-        // so the 'errors' key is still present when we reflash everything for the 409.
         if ($request->isMethod('GET')) {
             $serverVersion = $this->inertia->version();
 
@@ -51,7 +48,7 @@ final class InertiaListener
                 if (null !== $clientVersion && $clientVersion !== $serverVersion) {
                     // Reflash all session flash data (including 'errors') so it survives
                     // the hard reload that follows a 409 Conflict.
-                    if ($request->hasSession()) {
+                    if ($request->hasSession() && !$request->attributes->getBoolean('_stateless')) {
                         $session = $request->getSession();
                         if ($session instanceof FlashBagAwareSessionInterface) {
                             $flashes = $session->getFlashBag()->all();
@@ -68,19 +65,6 @@ final class InertiaListener
                     ]));
 
                     return;
-                }
-            }
-        }
-
-        // Auto-inject FlashBag 'errors' as Inertia validation errors.
-        // Runs on all HTTP methods so a non-redirecting POST/PUT can also surface errors.
-        if ($request->hasSession()) {
-            $session = $request->getSession();
-            if ($session instanceof FlashBagAwareSessionInterface) {
-                foreach ($session->getFlashBag()->get('errors') as $errors) {
-                    if (\is_array($errors)) {
-                        $this->inertia->errors($errors);
-                    }
                 }
             }
         }

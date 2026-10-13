@@ -14,6 +14,10 @@ CHANGELOG
  * Fixed `once()->fresh()` having no effect: the prop is now resolved even when the client already has it. The non-standard `fresh: true` entry is no longer emitted in `onceProps`
  * Fixed `defer()->once()` props the client already has being listed in `deferredProps`, which triggered a useless deferred request
  * Fixed docs and README still documenting the removed `lazy()` method (use `optional()`)
+ * Fixed the session being read on `_stateless` routes (`UnexpectedSessionUsageException` in debug): flash, errors and history flags now fall back to memory there
+ * Fixed FlashBag `errors` (`addFlash('errors', [...])`) only reaching XHR visits: they are now read at render time, so a classic form post redirecting to a first visit shows them. String entries are left in the FlashBag for Twig
+ * Fixed `#[MapRequestPayload]` / `ValidationFailedException` error keys for nested fields: `items[0].name` is now sent as `items.0.name`, the dot notation the Inertia client uses
+ * Changed error bag resolution to match inertia-laravel: when the `default` bag exists, only it is sent (wrapped under `X-Inertia-Error-Bag` when present) — previously a second named bag switched the whole `errors` prop to a per-bag object the client could not read
  * Added dot-notation prop keys: `share('auth.user', ...)` or `render(..., ['auth.user.role' => ...])` are nested into the props tree (inertia-laravel `unpackDotProps`), and `sharedProps` lists their first segment (`["auth"]`) — previously the flat key was sent as is
  * Fixed a prop type returning another prop type (e.g. `always(fn () => merge(...))`) being serialized as `{}`: the inner prop is now resolved with its own rules and metadata
 

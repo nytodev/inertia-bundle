@@ -123,6 +123,17 @@ return static function (RoutingConfigurator $routes): void {
     $routes->add('test_validation_errors_override', '/test/validation-errors-override')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrorsOverride']);
 
+    $routes->add('test_validation_errors_mixed_bags', '/test/validation-errors-mixed-bags')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'validationErrorsMixedBags']);
+
+    $routes->add('test_flash_bag_errors_redirect', '/test/flash-bag-errors-redirect')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'flashBagErrorsRedirect'])
+        ->methods(['POST']);
+
+    $routes->add('test_stateless_page', '/test/stateless-page')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'statelessPage'])
+        ->defaults(['_stateless' => true]);
+
     $routes->add('test_merge_at_path', '/test/merge-at-path')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'mergeAtPath']);
 
@@ -169,6 +180,10 @@ return static function (RoutingConfigurator $routes): void {
 
     $routes->add('test_throw_validation_failed', '/test/throw-validation-failed')
         ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwValidationFailed'])
+        ->methods(['POST']);
+
+    $routes->add('test_throw_nested_validation_failed', '/test/throw-nested-validation-failed')
+        ->controller(['Nytodev\InertiaBundle\Tests\Functional\TestController', 'throwNestedValidationFailed'])
         ->methods(['POST']);
 
     $routes->add('test_throw_not_found', '/test/throw-not-found')

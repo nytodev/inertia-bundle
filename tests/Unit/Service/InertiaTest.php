@@ -17,6 +17,9 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Contracts\Service\ResetInterface;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
@@ -389,6 +392,50 @@ final class InertiaTest extends TestCase
         $data = json_decode((string) $response->getContent(), true);
         self::assertIsArray($data);
         self::assertSame(['login' => ['name' => 'Required']], $data['props']['errors']);
+    }
+
+    public function testFlashBagArrayErrorsAreRenderedAndStringMessagesKeptForTwig(): void
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $session->getFlashBag()->add('errors', ['email' => 'Invalid']);
+        $session->getFlashBag()->add('errors', 'Something went wrong.');
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $request->setSession($session);
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $response = $this->makeService()->render('Home', []);
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['email' => 'Invalid'], $data['props']['errors']);
+        self::assertSame(['Something went wrong.'], $session->getFlashBag()->peek('errors'));
+    }
+
+    public function testStatelessRouteNeverTouchesTheSession(): void
+    {
+        $session = $this->createMock(SessionInterface::class);
+        $session->expects(self::never())->method(self::anything());
+        $request = new Request([], [], [], [], [], ['REQUEST_URI' => '/home']);
+        $request->headers->set('X-Inertia', 'true');
+        $request->attributes->set('_stateless', true);
+        $request->setSession($session);
+        $this->requestStack->method('getCurrentRequest')->willReturn($request);
+
+        $service = $this->makeService();
+        $service->flash('status', 'saved');
+        $service->errors(['email' => 'Invalid']);
+        $service->clearHistory();
+        $service->preserveFragment();
+        $response = $service->render('Home', []);
+        $service->reset();
+
+        $data = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['status' => 'saved'], $data['flash']);
+        self::assertSame(['email' => 'Invalid'], $data['props']['errors']);
+        self::assertTrue($data['clearHistory']);
+        self::assertTrue($data['preserveFragment']);
     }
 
     public function testResetClearsErrorsData(): void

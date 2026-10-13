@@ -12,6 +12,7 @@ use Nytodev\InertiaBundle\Props\OptionalProp;
 use Nytodev\InertiaBundle\Props\ScrollProp;
 use Nytodev\InertiaBundle\Service\Inertia;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -294,6 +295,30 @@ final class TestController
         return $this->inertia->render('TestComponent', ['errors' => ['explicit' => true]]);
     }
 
+    public function validationErrorsMixedBags(): Response
+    {
+        $this->inertia->errors(['email' => 'Invalid email']);
+        $this->inertia->errors(['name' => 'Required'], 'login');
+
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
+    public function flashBagErrorsRedirect(Request $request): Response
+    {
+        $request->getSession()->getFlashBag()->add('errors', ['email' => 'Invalid email']);
+
+        return new RedirectResponse('/test/validation-errors-target', 302);
+    }
+
+    public function statelessPage(): Response
+    {
+        $this->inertia->flash('status', 'saved');
+        $this->inertia->clearHistory();
+        $this->inertia->errors(['email' => 'Invalid email']);
+
+        return $this->inertia->render('TestComponent', ['foo' => 'bar']);
+    }
+
     public function mergeAtPath(): Response
     {
         return $this->inertia->render('TestComponent', [
@@ -381,6 +406,16 @@ final class TestController
     {
         $violations = new ConstraintViolationList([
             new ConstraintViolation('Manual message.', null, [], null, 'name', null),
+        ]);
+
+        throw new ValidationFailedException(null, $violations);
+    }
+
+    public function throwNestedValidationFailed(): Response
+    {
+        $violations = new ConstraintViolationList([
+            new ConstraintViolation('Item name required.', null, [], null, 'items[0].name', null),
+            new ConstraintViolation('Tag required.', null, [], null, '[tags][1]', null),
         ]);
 
         throw new ValidationFailedException(null, $violations);
