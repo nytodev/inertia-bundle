@@ -19,19 +19,14 @@ jobs:
       fail-fast: true
       matrix:
         php: ["8.1", "8.2", "8.3", "8.4", "8.5"]
-        symfony: ["6.4", "7.4", "8.0", "8.1"]
+        # Symfony 8.0 is EOL: every 8.0.x release is blocked by unpatched security advisories
+        symfony: ["6.4", "7.4", "8.1"]
         stability: ["prefer-lowest", "prefer-stable"]
         exclude:
           # Symfony 7.x requires PHP >= 8.2
           - php: "8.1"
             symfony: "7.4"
           # Symfony 8.x requires PHP >= 8.4
-          - php: "8.1"
-            symfony: "8.0"
-          - php: "8.2"
-            symfony: "8.0"
-          - php: "8.3"
-            symfony: "8.0"
           - php: "8.1"
             symfony: "8.1"
           - php: "8.2"
